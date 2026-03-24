@@ -132,11 +132,11 @@ public:
 	}
 
 	CmdType GetCmd() {
-		if (Head.Drive == 0x1)
+		if (Head.Drive == 1) //0x1 is 1 in Hex
 			return DRIVE;
-		else if (Head.Status == 0x1)
+		else if (Head.Status == 1)
 			return RESPONSE;
-		else if (Head.Sleep == 0x1)
+		else if (Head.Sleep == 1)
 			return SLEEP;
 	}
 
@@ -156,6 +156,7 @@ public:
 		return Head.PktCount;
 	}
 
+	// *** Changed ***
 	bool CheckCRC(char* dat, int size) {
 		if (!dat || size <= 0) return false;
 
@@ -174,6 +175,7 @@ public:
 		return count == (unsigned char)dat[size - sizeof(CRC)];
 	}
 
+	// *** Changed ***
 	void CalcCRC() {
 		unsigned char count = 0;
 
@@ -204,6 +206,7 @@ public:
 		CRC = count;
 	}
 
+	// *** Changed ***
 	char* GenPacket() {
 		if (RawBuffer) {
 			delete[] RawBuffer;
