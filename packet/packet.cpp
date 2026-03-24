@@ -41,12 +41,13 @@ typedef enum CmdType {
 
 class PktDef {
 	struct Header {
-		short int PktCount; //problem: int is 4byte, req is 2. solution: short
+		unsigned short PktCount; //problem: int is 4byte, req is 2. solution: short
 		//may need to change depending on OS
-		unsigned int Drive : 1;
-		unsigned int Status : 1;
-		unsigned int Sleep : 1;
-		unsigned int Ack : 1; //was gettin some compiler warnings so I unsigned all of these
+		unsigned char Drive : 1;
+		unsigned char Status : 1;
+		unsigned char Sleep : 1;
+		unsigned char Ack : 1; //was gettin some compiler warnings so I unsigned all of these
+		unsigned char Padding : 4;
 		unsigned char Length;//problem: short is 2byte, req is 1. solution: char
 		//may need to change depending on OS.
 		//is this considered not following the requirements? I hope not
@@ -66,16 +67,28 @@ public:
 		RawBuffer = nullptr;
 		CRC = 0;
 	}
+
 	PktDef(char* Rawdat) {
+		memset(&Head, 0, HEADERSIZE); //just in case
+		RawBuffer = nullptr;
+		Data = nullptr;
+		CRC = 0;
+
+		if (Rawdat == nullptr) return;
+
 		//head
-		memcpy(&Head, Rawdat,HEADERSIZE);
+		memcpy(&Head, Rawdat, HEADERSIZE);
+
+		if (Head.Length == 0) return;
+
 		//body
 		memcpy(Data, (Rawdat + HEADERSIZE), (Head.Length - HEADERSIZE - sizeof(CRC)));
-			//a bit awkward since the size Head gives us is total size, but whatever
-		//tail
+		//a bit awkward since the size Head gives us is total size, but whatever
+
+	//tail
 		memcpy(&CRC, (Rawdat + Head.Length - sizeof(CRC)), sizeof(CRC));
 
-		RawBuffer = nullptr;//just in case
+
 	}
 
 	void SetCmd(CmdType cmd) {
@@ -100,10 +113,11 @@ public:
 	void SetBodyData(char* dat, int size) {
 		if (Data) {
 			delete[] Data;
+			Data = nullptr;
 		}
 
 		if (!dat || size <= 0) {
-			Data = nullptr;
+			Head.Length = HEADERSIZE + sizeof(CRC);
 			return;
 		}
 
@@ -143,46 +157,79 @@ public:
 	}
 
 	bool CheckCRC(char* dat, int size) {
-		int count=0;
-		for (int i = 0;i < size;i++) {
-			if (dat[i] == 0x1)
-				count++;
-		}//this feels really dumb but I think it works?
+		if (!dat || size <= 0) return false;
 
-		if (count == CRC)
-			return true;
-		else
-			return false;
+		unsigned char count = 0;
+
+		for (int i = 0; i < size - (int)sizeof(CRC); i++) {
+			unsigned char byte = (unsigned char)dat[i];
+
+			for (int j = 0; j < 8; j++) {
+				if (byte & (1 << j)) {
+					count++;
+				}
+			}
+		}
+
+		return count == (unsigned char)dat[size - sizeof(CRC)];
 	}
 
 	void CalcCRC() {
-		int size = Head.Length - sizeof(CRC);
+		unsigned char count = 0;
 
-		int count = 0;
-		for (int i = 0;i < size;i++) {
-			if (RawBuffer[i] == 0x1)//honestly not sure this works but I think it should
-				count++;
+		char* hdrPtr = (char*)&Head;
+		for (int i = 0; i < HEADERSIZE; i++) {
+			unsigned char byte = (unsigned char)hdrPtr[i];
+
+			for (int j = 0; j < 8; j++) {
+				if (byte & (1 << j)) {
+					count++;
+				}
+			}
 		}
+
+		int bodyLength = Head.Length - HEADERSIZE - sizeof(CRC);
+		if (Data && bodyLength > 0) {
+			for (int i = 0; i < bodyLength; i++) {
+				unsigned char byte = (unsigned char)Data[i];
+
+				for (int j = 0; j < 8; j++) {
+					if (byte & (1 << j)) {
+						count++;
+					}
+				}
+			}
+		}
+
 		CRC = count;
 	}
 
 	char* GenPacket() {
 		if (RawBuffer) {
 			delete[] RawBuffer;
+			RawBuffer = nullptr;
 		}
 
-		Head.Length += HEADERSIZE + sizeof(CRC);
-		//in order to create and send a packet, the steps are: packet(), setbodydata(char*, int), this
-		//packet keeps size at 0, setbodydata adds the size of the body. so we're still missing size of head and crc
+		int totalLength = Head.Length;
+		if (totalLength < HEADERSIZE + (int)sizeof(CRC)) return nullptr;
 
-		RawBuffer = new char[Head.Length];
+		RawBuffer = new char[totalLength];
 
 		memcpy(RawBuffer, &Head, HEADERSIZE);
-		memcpy(RawBuffer + HEADERSIZE, Data, (Head.Length - HEADERSIZE - sizeof(CRC)));
+
+		int bodyLength = totalLength - HEADERSIZE - sizeof(CRC);
+		if (Data && bodyLength > 0) {
+			memcpy(RawBuffer + HEADERSIZE, Data, bodyLength);
+		}
 
 		CalcCRC();
-		memcpy((RawBuffer + Head.Length - sizeof(CRC)), &CRC, sizeof(CRC));
+		RawBuffer[totalLength - sizeof(CRC)] = CRC;
 
 		return RawBuffer;
+	}
+
+	~PktDef() {
+		if (RawBuffer) delete[] RawBuffer;
+		if (Data) delete[] Data;
 	}
 };
