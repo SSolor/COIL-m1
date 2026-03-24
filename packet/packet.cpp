@@ -102,6 +102,11 @@ public:
 			delete[] Data;
 		}
 
+		if (!dat || size <= 0) {
+			Data = nullptr;
+			return;
+		}
+
 		Data = new char[size];
 		memcpy(Data, dat, size);
 
