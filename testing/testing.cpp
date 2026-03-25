@@ -6,9 +6,11 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace UnitTests
 {
+
     TEST_CLASS(PktDefTests)
     {
     public:
+        // Default constructor tests.
         TEST_METHOD(DefaultConstructor_PktCount)
         {
             PktDef pkt;
@@ -42,6 +44,8 @@ namespace UnitTests
             Assert::IsNull(pkt.GetBodyData());
         }
 
+
+        // SetCmd tests.
         TEST_METHOD(SetCmd_DRIVE)
         {
             PktDef pkt;
@@ -73,6 +77,17 @@ namespace UnitTests
             Assert::AreEqual(expected, actual);
         }
 
+        TEST_METHOD(SetCmd_Switch)
+        {
+            PktDef pkt;
+            pkt.SetCmd(DRIVE);
+            pkt.SetCmd(RESPONSE);
+            int expected = RESPONSE;
+            int actual = pkt.GetCmd();
+            Assert::AreEqual(expected, actual);
+        }
+
+        // SetPktCount test.
         TEST_METHOD(SetPktCount)
         {
             PktDef pkt;
@@ -83,7 +98,7 @@ namespace UnitTests
 
             Assert::AreEqual(expected, actual);
         }
-
+        // SetBodyData tests.
         TEST_METHOD(SetBodyData_NotNull)
         {
             PktDef pkt;
@@ -107,13 +122,80 @@ namespace UnitTests
             Assert::AreEqual((char)10, result[1]);
             Assert::AreEqual((char)80, result[2]);
         }
-        TEST_METHOD(SetBodyData_Empty)
+
+        TEST_METHOD(CalcCRC)
         {
-            PktDef pkt;
+            char rawBuff[8] = {
+                0x00, 0x00,
+                0x00,
+                0x08,
+                0x01, 0x0A, 0x50,
+                0x00 // set CRC to 0, to be recalculated
+            };
 
-            pkt.SetBodyData(nullptr, 0);
+            PktDef pkt(rawBuff);
+            pkt.CalcCRC();
+           
+            char expected = 0x06;
+            char actual = pkt.GetCRC();
 
-            Assert::IsNull(pkt.GetBodyData());
+            Assert::AreEqual(expected, actual);
+        }
+
+        TEST_METHOD(CheckCRC)
+        {
+         const int size = 8;
+            char rawBuff[size] = {
+                0x00, 0x00,       
+                0x00,             
+                0x08,             
+                0x01, 0x0A, 0x50, 
+                0x06              
+            };
+
+            PktDef pkt(rawBuff);
+
+            bool result = pkt.CheckCRC(rawBuff, size);
+
+            Assert::IsTrue(result);
+        }
+
+        TEST_METHOD(CheckCRC_Invalid)
+        {
+            const int size = 8;
+            char rawBuff[size] = {
+                0x00, 0x00,
+                0x00,
+                0x08,
+                0x01, 0x0A, 0x50,
+                0x05 // CRC off by 1
+            };
+
+            PktDef pkt(rawBuff);
+
+            bool result = pkt.CheckCRC(rawBuff, size);
+
+            Assert::IsFalse(result);
+        }
+
+        TEST_METHOD(GenPacket)
+        {
+            const int size = 8;
+            char expected[size] = {
+                0x00, 0x00,
+                0x00,
+                0x08,
+                0x01, 0x0A, 0x50,
+                0x06 
+            };
+
+            PktDef pkt(expected);
+
+            char* actual = pkt.GenPacket();
+
+            for (int byte = 0; byte < size; byte++) {
+                Assert::AreEqual(expected[byte], actual[byte]);
+            }
         }
 
     };

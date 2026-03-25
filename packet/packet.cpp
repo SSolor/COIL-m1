@@ -1,10 +1,9 @@
 //sebastian, ricardo, rami, devki
 //COIL milestone 1, packet definition
 
-#include <stdio.h>
 #include <memory>
-#include <bitset>
-//#include <cstring> 
+#include <cstring> 
+
 //I remember another compiler needed this for memset even tho it should be in <memory>
 
 // #defines > const ints fite me
@@ -68,16 +67,24 @@ public:
 	}
 
 	PktDef(char* Rawdat) {
-		//head
+		if (!Rawdat) return;
+
 		memcpy(&Head, Rawdat, HEADERSIZE);
 
-		//body
-		memcpy(Data, (Rawdat + HEADERSIZE), (Head.Length - HEADERSIZE - sizeof(CRC)));
-		//a bit awkward since the size Head gives us is total size, but whatever
+		int totalLength = Head.Length;
+		if (totalLength < HEADERSIZE + (int)sizeof(CRC)) return;
 
-	//tail
-		memcpy(&CRC, (Rawdat + Head.Length - sizeof(CRC)), sizeof(CRC));
+		int bodyLength = totalLength - HEADERSIZE - sizeof(CRC);
 
+		RawBuffer = new char[totalLength];
+		memcpy(RawBuffer, Rawdat, totalLength);
+
+		if (bodyLength > 0) {
+			Data = new char[bodyLength];
+			memcpy(Data, Rawdat + HEADERSIZE, bodyLength);
+		}
+
+		CRC = Rawdat[totalLength - sizeof(CRC)];
 	}
 
 	void SetCmd(CmdType cmd) {
@@ -151,14 +158,14 @@ public:
 			}
 		}
 
-		return (char)counter == dat[size - sizeof(CRC)];
+		return (char)counter == CRC;
 	}
 
 
 	void CalcCRC() {
 		int counter = 0;
 		char* Hdr = (char*)&Head;
-		
+
 		for (int byte = 0; byte < HEADERSIZE; byte++) {
 			for (int bit = 0; bit < 8; bit++) {
 				if (Hdr[byte] & (1 << bit)) {
@@ -166,7 +173,7 @@ public:
 				}
 			}
 		}
-		
+
 		int Len = Head.Length - HEADERSIZE - sizeof(CRC);
 
 		for (int byte = 0; byte < Len; byte++) {
@@ -187,7 +194,7 @@ public:
 		}
 
 		int totalLength = Head.Length;
-		if (totalLength < HEADERSIZE + (int)sizeof(CRC)) return nullptr;
+		if (totalLength < HEADERSIZE + sizeof(CRC)) return nullptr;
 
 		RawBuffer = new char[totalLength];
 
@@ -202,6 +209,10 @@ public:
 		RawBuffer[totalLength - sizeof(CRC)] = CRC;
 
 		return RawBuffer;
+	}
+
+	char GetCRC() {
+		return CRC;
 	}
 
 	~PktDef() {
