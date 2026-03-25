@@ -7,7 +7,6 @@
 //#include <cstring> 
 //I remember another compiler needed this for memset even tho it should be in <memory>
 
-
 // #defines > const ints fite me
 #define FORWARD 1
 #define	BACKWARD 2
@@ -140,17 +139,47 @@ public:
 		return Head.PktCount;
 	}
 
-	// *** Changed ***
+
 	bool CheckCRC(char* dat, int size) {
-		
+		int counter = 0;
+
+		for (int byte = 0; byte < size - sizeof(CRC); byte++) {
+			for (int bit = 0; bit < 8; bit++) {
+				if (dat[byte] & (1 << bit)) {
+					counter++;
+				}
+			}
+		}
+
+		return (char)counter == dat[size - sizeof(CRC)];
 	}
 
-	// *** Changed ***
+
 	void CalcCRC() {
+		int counter = 0;
+		char* Hdr = (char*)&Head;
 		
+		for (int byte = 0; byte < HEADERSIZE; byte++) {
+			for (int bit = 0; bit < 8; bit++) {
+				if (Hdr[byte] & (1 << bit)) {
+					counter++;
+				}
+			}
+		}
+		
+		int Len = Head.Length - HEADERSIZE - sizeof(CRC);
+
+		for (int byte = 0; byte < Len; byte++) {
+			for (int bit = 0; bit < 8; bit++) {
+				if (Data[byte] & (1 << bit)) {
+					counter++;
+				}
+			}
+		}
+
+		CRC = (char)counter;
 	}
 
-	// *** Changed ***					 Take a look at this
 	char* GenPacket() {
 		if (RawBuffer) {
 			delete[] RawBuffer;
