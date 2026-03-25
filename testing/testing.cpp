@@ -6,9 +6,13 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace UnitTests
 {
+    
+    
+    
     TEST_CLASS(PktDefTests)
     {
     public:
+        // Default constructor tests.
         TEST_METHOD(DefaultConstructor_PktCount)
         {
             PktDef pkt;
@@ -41,7 +45,7 @@ namespace UnitTests
             PktDef pkt;
             Assert::IsNull(pkt.GetBodyData());
         }
-
+        // SetCmd tests.
         TEST_METHOD(SetCmd_DRIVE)
         {
             PktDef pkt;
@@ -72,7 +76,7 @@ namespace UnitTests
             int actual = pkt.GetCmd();
             Assert::AreEqual(expected, actual);
         }
-
+        // SetPktCount test.
         TEST_METHOD(SetPktCount)
         {
             PktDef pkt;
@@ -83,7 +87,7 @@ namespace UnitTests
 
             Assert::AreEqual(expected, actual);
         }
-
+        // SetBodyData tests.
         TEST_METHOD(SetBodyData_NotNull)
         {
             PktDef pkt;
@@ -107,6 +111,7 @@ namespace UnitTests
             Assert::AreEqual((char)10, result[1]);
             Assert::AreEqual((char)80, result[2]);
         }
+
         TEST_METHOD(SetBodyData_Empty)
         {
             PktDef pkt;
@@ -115,6 +120,53 @@ namespace UnitTests
 
             Assert::IsNull(pkt.GetBodyData());
         }
+        
+        // CalcCRC tests.
+        TEST_METHOD(CalcCRC_Default)
+        {
+            PktDef pkt;
 
+            pkt.CalcCRC();
+
+            char expected = 0;
+            char actual = pkt.CRC;
+
+            Assert::AreEqual(expected, actual);
+        }
+
+        TEST_METHOD(CalcCRC_WithData)
+        {
+            PktDef pkt;
+            pkt.body[3] = { 1, 10, 80 };
+
+            pkt.CalcCRC();
+
+            char expected = 5;
+            char actual = pkt.CRC;
+
+            Assert::AreEqual(expected, actual);
+        }
+
+        // CheckCRC tests.
+        TEST_METHOD(CheckCRC_Valid)
+        {
+            PktDef pkt;
+            pkt.body[3] = { 1, 10, 80 };
+            pkt.CalcCRC(); // for debugging (breaker)
+
+            bool result = pkt.CheckCRC(pkt.GetBodyData(), 3);
+
+            Assert::IsTrue(result);
+        }
+
+        TEST_METHOD(CheckCRC_Default)
+        {
+            PktDef pkt;
+            pkt.CalcCRC(); // for debugging (breaker)
+
+            bool result = pkt.CheckCRC(pkt.GetBodyData(), 3);
+
+            Assert::IsTrue(result);
+        }
     };
 }
