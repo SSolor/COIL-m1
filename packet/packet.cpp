@@ -69,17 +69,8 @@ public:
 	}
 
 	PktDef(char* Rawdat) {
-		memset(&Head, 0, HEADERSIZE); //just in case
-		RawBuffer = nullptr;
-		Data = nullptr;
-		CRC = 0;
-
-		if (Rawdat == nullptr) return;
-
 		//head
 		memcpy(&Head, Rawdat, HEADERSIZE);
-
-		if (Head.Length == 0) return;
 
 		//body
 		memcpy(Data, (Rawdat + HEADERSIZE), (Head.Length - HEADERSIZE - sizeof(CRC)));
@@ -87,7 +78,6 @@ public:
 
 	//tail
 		memcpy(&CRC, (Rawdat + Head.Length - sizeof(CRC)), sizeof(CRC));
-
 
 	}
 
@@ -113,12 +103,6 @@ public:
 	void SetBodyData(char* dat, int size) {
 		if (Data) {
 			delete[] Data;
-			Data = nullptr;
-		}
-
-		if (!dat || size <= 0) {
-			Head.Length = HEADERSIZE + sizeof(CRC);
-			return;
 		}
 
 		Data = new char[size];
@@ -158,55 +142,15 @@ public:
 
 	// *** Changed ***
 	bool CheckCRC(char* dat, int size) {
-		if (!dat || size <= 0) return false;
-
-		unsigned char count = 0;
-
-		for (int i = 0; i < size - (int)sizeof(CRC); i++) {
-			unsigned char byte = (unsigned char)dat[i];
-
-			for (int j = 0; j < 8; j++) {
-				if (byte & (1 << j)) {
-					count++;
-				}
-			}
-		}
-
-		return count == (unsigned char)dat[size - sizeof(CRC)];
+		
 	}
 
 	// *** Changed ***
 	void CalcCRC() {
-		unsigned char count = 0;
-
-		char* hdrPtr = (char*)&Head;
-		for (int i = 0; i < HEADERSIZE; i++) {
-			unsigned char byte = (unsigned char)hdrPtr[i];
-
-			for (int j = 0; j < 8; j++) {
-				if (byte & (1 << j)) {
-					count++;
-				}
-			}
-		}
-
-		int bodyLength = Head.Length - HEADERSIZE - sizeof(CRC);
-		if (Data && bodyLength > 0) {
-			for (int i = 0; i < bodyLength; i++) {
-				unsigned char byte = (unsigned char)Data[i];
-
-				for (int j = 0; j < 8; j++) {
-					if (byte & (1 << j)) {
-						count++;
-					}
-				}
-			}
-		}
-
-		CRC = count;
+		
 	}
 
-	// *** Changed ***
+	// *** Changed ***					 Take a look at this
 	char* GenPacket() {
 		if (RawBuffer) {
 			delete[] RawBuffer;
