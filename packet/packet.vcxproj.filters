@@ -15,13 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="packet.cpp">
+    <ClCompile Include="packet.h">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="socket.cpp">
+    <ClCompile Include="socket.h">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

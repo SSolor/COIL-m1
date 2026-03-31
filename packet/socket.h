@@ -1,25 +1,26 @@
 //COIL milestone 2, socket definitions
 
+#pragma once
 #ifdef _WIN32
+	#define _WINSOCK_DEPRECATED_NO_WARNINGS
 	#include <winsock2.h>
 	#include <ws2tcpip.h> 
-	//in your most recent example, you used "<windows.networking.sockets.h>", 
+	//in your most recent example, you used "<ONWINDOWS.networking.sockets.h>", 
 	//but I couldn't get sockaddrlen to work wiht that
 	#pragma comment(lib, "Ws2_32.lib")
-	bool WINDOWS = true;
-	int close(SOCKET s) { return 0; }
-	#define	XXX int
+	#define ONWINDOWS 1 //for some reason, having it as 'true' causes issues in ifs
+	//int //close(SOCKET s) { return 0; }
 #elif __linux__ 
 	#include <unistd.h>
 	#include <sys/socket.h>
 	#include <netinet/in.h>
 
 	#include <arpa/inet.h> //needed for inet_addr()
-	#define INVALID_SOCKET ~0 //this is how windows does it idk man
+	#define INVALID_SOCKET ~0 //this is how ONWINDOWS does it idk man
 	#define SOCKET_ERROR -1
 	#define SOCKET int
 	int closesocket(int) { return 0; }
-	bool WINDOWS = false;
+	bool ONWINDOWS = false;
 #endif
 
 
@@ -56,7 +57,7 @@ class MySocket {
 
 
 	int socketStart() {
-		if (WINDOWS) {
+		if (ONWINDOWS) {
 			WSADATA wsaData;
 			if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) 
 				return -1;
@@ -71,7 +72,7 @@ class MySocket {
 				ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
 			if (ConnectionSocket == INVALID_SOCKET) {
-				if(WINDOWS)
+				if(ONWINDOWS)
 					WSACleanup();
 				return -1;
 			}
@@ -87,7 +88,7 @@ class MySocket {
 
 			ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 			if (ConnectionSocket == INVALID_SOCKET) {
-				if (WINDOWS)
+				if (ONWINDOWS)
 					WSACleanup();
 				return -1;
 			}
@@ -98,12 +99,12 @@ class MySocket {
 
 			//bind
 			if (bind(ConnectionSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR){
-				if (WINDOWS) {
+				if (ONWINDOWS) {
 					closesocket(ConnectionSocket);
 					WSACleanup();
 				}
 				else
-					close(ConnectionSocket);
+					//close(ConnectionSocket);
 				return -1;
 			}
 
@@ -113,7 +114,7 @@ class MySocket {
 		else if (connectionType == TCP && mySocket == SERVER) {
 			WelcomeSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (WelcomeSocket == INVALID_SOCKET) {
-				if (WINDOWS)
+				if (ONWINDOWS)
 					WSACleanup();
 				return -1;
 			}
@@ -124,23 +125,23 @@ class MySocket {
 
 			//bind
 			if (bind(WelcomeSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
-				if (WINDOWS) {
+				if (ONWINDOWS) {
 					closesocket(WelcomeSocket);
 					WSACleanup();
 				}
 				else
-					close(WelcomeSocket);
+					//close(WelcomeSocket);
 				return -1;
 			}
 
 			//listen
 			if (listen(WelcomeSocket, 1) == SOCKET_ERROR) { //I think 1 is fine here?
-				if (WINDOWS) {
+				if (ONWINDOWS) {
 					closesocket(WelcomeSocket);
 					WSACleanup();
 				}
 				else
-					close(WelcomeSocket);
+					//close(WelcomeSocket);
 				return -1;
 			}
 
@@ -189,10 +190,10 @@ public:
 			if (mySocket == CLIENT) {
 
 				if (connect(ConnectionSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
-					if (WINDOWS)
+					if (ONWINDOWS)
 						closesocket(ConnectionSocket);
 					else
-						close(ConnectionSocket);
+						//close(ConnectionSocket);
 					fprintf(stderr, "failed to connect\n");
 					return;
 				}
@@ -202,10 +203,10 @@ public:
 			else if (mySocket == SERVER) {
 				ConnectionSocket = SOCKET_ERROR;
 				if ((ConnectionSocket = accept(WelcomeSocket, NULL, NULL)) == SOCKET_ERROR) {
-					if (WINDOWS)
+					if (ONWINDOWS)
 						closesocket(WelcomeSocket);
 					else 
-						close(WelcomeSocket);
+						//close(WelcomeSocket);
 					fprintf(stderr, "failed to accept\n");
 					return;
 				}
@@ -221,10 +222,10 @@ public:
 			return;
 		}
 		else{
-			if(WINDOWS)
+			if(ONWINDOWS)
 				closesocket(ConnectionSocket);
 			else
-				close(ConnectionSocket);
+				//close(ConnectionSocket);
 
 			//I'm assuming this function doesn't want to 'end everything',
 			//so I'm not closing welcomesocket or calling wsacleanup
@@ -235,10 +236,10 @@ public:
 	}
 	void KillTCPServ() {
 		if (connectionType == TCP && bTCPConnect == false && mySocket == SERVER) {
-			if (WINDOWS)
+			if (ONWINDOWS)
 				closesocket(WelcomeSocket);
-			else
-				close(WelcomeSocket);
+			//else
+				//close(WelcomeSocket);
 		}
 		else {
 			fprintf(stderr, "you cannot do that\n");
@@ -262,18 +263,23 @@ public:
 		return;
 	}
 	int GetData(char* buf) {
-		int recsize;
+		int recsize=0;
 		if (connectionType == TCP && bTCPConnect == true) {
 			recsize=recv(ConnectionSocket, Buffer, MaxSize, 0);
 			//if the send data is bigger than maxsize, this might be a problem, but CRCs will tell us to throw away bad packets anyways
+			printf("at tcp\n");
 		}
 		else if (connectionType == UDP && mySocket == CLIENT) {
 			recsize = recvfrom(ConnectionSocket, Buffer, MaxSize, 0, (struct sockaddr*)&SvrAddr, &AddrLen);
-
+			printf("recieved, size: %d\n", recsize);
 		}
 		else if (connectionType == UDP && mySocket == SERVER) {
 			recsize = recvfrom(ConnectionSocket, Buffer, MaxSize, 0, (struct sockaddr*)&CliAddr, &AddrLen);
+			printf("at udp serv\n");
 		}
+
+		if (recsize < 0)
+			return -1;
 		memcpy(buf, Buffer, recsize);
 		return recsize;
 	}

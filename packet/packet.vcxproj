@@ -124,8 +124,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="packet.cpp" />
-    <ClCompile Include="socket.cpp" />
+    <ClCompile Include="packet.h" />
+    <ClCompile Include="socket.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

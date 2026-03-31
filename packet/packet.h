@@ -1,6 +1,6 @@
 //sebastian, ricardo, rami, devki
 //COIL milestone 1, packet definition
-
+#pragma once
 #include <memory>
 #include <cstring> 
 
