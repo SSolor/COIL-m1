@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "CppUnitTest.h"
-#include "../packet/packet.cpp"
+#include "../packet/packet.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 

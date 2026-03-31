@@ -29,11 +29,12 @@ int main(void) {
 	}
 	printf("\n");
 
-	/*
+	
 	WSADATA wsaData;
 	if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
 		return -1;
 	}
+	/*
 
 	//initializes socket. SOCK_STREAM: TCP
 	SOCKET ClientSocket;
@@ -63,11 +64,74 @@ int main(void) {
 	PktDef r(recv);
 	printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", r.GetAck(), r.GetCmd(), r.GetPktCount(), r.GetBodyData());
 	*/
-		MySocket soc(CLIENT, "10.172.41.150", 29500, UDP, 100);
-	soc.SendData(x, p.GetLength());
-	
-	char rc[150];
-	int recvied = soc.GetData(rc);
+		MySocket soc(CLIENT, "10.172.41.150", 29000, TCP, 100);
+		soc.ConnectTCP();
+		soc.ConnectTCP();
 
+		//soc.ConnectTCP();
+		soc.SendData(x, p.GetLength());
+		
+		char rc[150];
+		int recvied = soc.GetData(rc);
+		printf("%d\n", recvied);
+		for (int i = 0; i < recvied;i++) {
+			printf("%d,", rc[i]);
+		}
+
+		PktDef r(rc);
+		printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", r.GetAck(), r.GetCmd(), r.GetPktCount(), r.GetBodyData());
+
+		printf("--------\n");
+		x[0] = 9;
+		soc.SendData(x, p.GetLength());
+
+		char rc2[150];
+		int forlan = soc.GetData(rc2);
+		printf("%d\n", forlan);
+		for (int i = 0; i < forlan;i++) {
+			printf("%d,", rc2[i]);
+		}
+		PktDef rfo(rc2);
+		printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", rfo.GetAck(), rfo.GetCmd(), rfo.GetPktCount(), rfo.GetBodyData());
+		
+	/*
+	SocketType stype = CLIENT;
+	std::string IP = "10.172.41.150";
+	unsigned int port = 29500;
+	ConnectionType ctype = UDP;
+	unsigned int size= 100;
+	char* Buffer;
+	int MaxSize;
+
+	if (size > DEFAULT_SIZE) {
+		Buffer = new char[size];
+		MaxSize = size;
+	}
+	else {
+		Buffer = new char[DEFAULT_SIZE];
+		MaxSize = DEFAULT_SIZE;
+	}
+
+	SOCKET ConnectionSocket;
+	ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (ConnectionSocket == INVALID_SOCKET) {
+		if (ONWINDOWS)
+			WSACleanup();
+			return -1;
+	}
+
+	struct sockaddr_in SvrAddr;
+	SvrAddr.sin_family = AF_INET;
+	SvrAddr.sin_port = htons(port);
+	SvrAddr.sin_addr.s_addr = inet_addr(IP.c_str());
+
+	char recv[150];
+	int AddrLen;
+
+	int res = sendto(ConnectionSocket, x, p.GetLength(), 0, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr));
+	int recsize = recvfrom(ConnectionSocket, recv, 150, 0, (struct sockaddr*)&SvrAddr, &AddrLen);
+	printf("recieved, size: %d\n", recsize);
+	*/
+	WSACleanup();
 	return 0;
 }

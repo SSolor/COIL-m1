@@ -57,11 +57,7 @@ class MySocket {
 
 
 	int socketStart() {
-		if (ONWINDOWS) {
-			WSADATA wsaData;
-			if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) 
-				return -1;
-		}
+
 
 		//socket
 		if (mySocket == CLIENT) {
@@ -72,8 +68,6 @@ class MySocket {
 				ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
 			if (ConnectionSocket == INVALID_SOCKET) {
-				if(ONWINDOWS)
-					WSACleanup();
 				return -1;
 			}
 
@@ -88,8 +82,6 @@ class MySocket {
 
 			ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 			if (ConnectionSocket == INVALID_SOCKET) {
-				if (ONWINDOWS)
-					WSACleanup();
 				return -1;
 			}
 
@@ -101,7 +93,6 @@ class MySocket {
 			if (bind(ConnectionSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR){
 				if (ONWINDOWS) {
 					closesocket(ConnectionSocket);
-					WSACleanup();
 				}
 				else
 					//close(ConnectionSocket);
@@ -114,8 +105,6 @@ class MySocket {
 		else if (connectionType == TCP && mySocket == SERVER) {
 			WelcomeSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (WelcomeSocket == INVALID_SOCKET) {
-				if (ONWINDOWS)
-					WSACleanup();
 				return -1;
 			}
 
@@ -125,10 +114,8 @@ class MySocket {
 
 			//bind
 			if (bind(WelcomeSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
-				if (ONWINDOWS) {
+				if (ONWINDOWS) 
 					closesocket(WelcomeSocket);
-					WSACleanup();
-				}
 				else
 					//close(WelcomeSocket);
 				return -1;
@@ -136,10 +123,8 @@ class MySocket {
 
 			//listen
 			if (listen(WelcomeSocket, 1) == SOCKET_ERROR) { //I think 1 is fine here?
-				if (ONWINDOWS) {
+				if (ONWINDOWS)
 					closesocket(WelcomeSocket);
-					WSACleanup();
-				}
 				else
 					//close(WelcomeSocket);
 				return -1;
@@ -157,6 +142,13 @@ public:
 		IPAddr = IP;
 		Port = port;
 		connectionType = ctype;
+
+		//just initializing all of these because otherwise stuff might go badly
+		WelcomeSocket;
+		ConnectionSocket;
+		SvrAddr;
+		CliAddr;
+		AddrLen = sizeof(SvrAddr);
 		
 		if (size > DEFAULT_SIZE) {
 			Buffer = new char[size];
@@ -167,14 +159,12 @@ public:
 			MaxSize = DEFAULT_SIZE;
 		}
 
-
 		int ok=socketStart();
 		if (ok != 0) {
 			exit(EXIT_FAILURE);//can't return on a constructor, could this be an exception instead?
 		}
 	}
 	~MySocket() {
-		WSACleanup();
 		if (Buffer)
 			delete[] Buffer;
 		//I don't believe anything else is dynamic
@@ -228,7 +218,7 @@ public:
 				//close(ConnectionSocket);
 
 			//I'm assuming this function doesn't want to 'end everything',
-			//so I'm not closing welcomesocket or calling wsacleanup
+			//so I'm not closing welcomesocket or anything
 			bTCPConnect == false;
 
 			return;
