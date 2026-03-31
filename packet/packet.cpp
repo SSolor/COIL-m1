@@ -1,12 +1,10 @@
 //sebastian, ricardo, rami, devki
 //COIL milestone 1, packet definition
 
-#include <stdio.h>
 #include <memory>
-#include <bitset>
-//#include <cstring> 
-//I remember another compiler needed this for memset even tho it should be in <memory>
+#include <cstring> 
 
+//I remember another compiler needed this for memset even tho it should be in <memory>
 
 // #defines > const ints fite me
 #define FORWARD 1
@@ -41,12 +39,13 @@ typedef enum CmdType {
 
 class PktDef {
 	struct Header {
-		short int PktCount; //problem: int is 4byte, req is 2. solution: short
+		unsigned short PktCount; //problem: int is 4byte, req is 2. solution: short
 		//may need to change depending on OS
-		unsigned int Drive : 1;
-		unsigned int Status : 1;
-		unsigned int Sleep : 1;
-		unsigned int Ack : 1; //was gettin some compiler warnings so I unsigned all of these
+		unsigned char Drive : 1;
+		unsigned char Status : 1;
+		unsigned char Sleep : 1;
+		unsigned char Ack : 1; //was gettin some compiler warnings so I unsigned all of these
+		unsigned char Padding : 4;
 		unsigned char Length;//problem: short is 2byte, req is 1. solution: char
 		//may need to change depending on OS.
 		//is this considered not following the requirements? I hope not
@@ -66,16 +65,26 @@ public:
 		RawBuffer = nullptr;
 		CRC = 0;
 	}
-	PktDef(char* Rawdat) {
-		//head
-		memcpy(&Head, Rawdat,HEADERSIZE);
-		//body
-		memcpy(Data, (Rawdat + HEADERSIZE), (Head.Length - HEADERSIZE - sizeof(CRC)));
-			//a bit awkward since the size Head gives us is total size, but whatever
-		//tail
-		memcpy(&CRC, (Rawdat + Head.Length - sizeof(CRC)), sizeof(CRC));
 
-		RawBuffer = nullptr;//just in case
+	PktDef(char* Rawdat) {
+		if (!Rawdat) return;
+
+		memcpy(&Head, Rawdat, HEADERSIZE);
+
+		int totalLength = Head.Length;
+		if (totalLength < HEADERSIZE + (int)sizeof(CRC)) return;
+
+		int bodyLength = totalLength - HEADERSIZE - sizeof(CRC);
+
+		RawBuffer = new char[totalLength];
+		memcpy(RawBuffer, Rawdat, totalLength);
+
+		if (bodyLength > 0) {
+			Data = new char[bodyLength];
+			memcpy(Data, Rawdat + HEADERSIZE, bodyLength);
+		}
+
+		CRC = Rawdat[totalLength - sizeof(CRC)];
 	}
 
 	void SetCmd(CmdType cmd) {
@@ -113,11 +122,11 @@ public:
 	}
 
 	CmdType GetCmd() {
-		if (Head.Drive == 0x1)
+		if (Head.Drive == 1) //0x1 is 1 in Hex
 			return DRIVE;
-		else if (Head.Status == 0x1)
+		else if (Head.Status == 1)
 			return RESPONSE;
-		else if (Head.Sleep == 0x1)
+		else if (Head.Sleep == 1)
 			return SLEEP;
 	}
 
@@ -137,47 +146,77 @@ public:
 		return Head.PktCount;
 	}
 
-	bool CheckCRC(char* dat, int size) {
-		int count=0;
-		for (int i = 0;i < size;i++) {
-			if (dat[i] == 0x1)
-				count++;
-		}//this feels really dumb but I think it works?
 
-		if (count == CRC)
-			return true;
-		else
-			return false;
+	bool CheckCRC(char* dat, int size) {
+		int counter = 0;
+
+		for (int byte = 0; byte < size - sizeof(CRC); byte++) {
+			for (int bit = 0; bit < 8; bit++) {
+				if (dat[byte] & (1 << bit)) {
+					counter++;
+				}
+			}
+		}
+
+		return (char)counter == CRC;
 	}
 
-	void CalcCRC() {
-		int size = Head.Length - sizeof(CRC);
 
-		int count = 0;
-		for (int i = 0;i < size;i++) {
-			if (RawBuffer[i] == 0x1)//honestly not sure this works but I think it should
-				count++;
+	void CalcCRC() {
+		int counter = 0;
+		char* Hdr = (char*)&Head;
+
+		for (int byte = 0; byte < HEADERSIZE; byte++) {
+			for (int bit = 0; bit < 8; bit++) {
+				if (Hdr[byte] & (1 << bit)) {
+					counter++;
+				}
+			}
 		}
-		CRC = count;
+
+		int Len = Head.Length - HEADERSIZE - sizeof(CRC);
+
+		for (int byte = 0; byte < Len; byte++) {
+			for (int bit = 0; bit < 8; bit++) {
+				if (Data[byte] & (1 << bit)) {
+					counter++;
+				}
+			}
+		}
+
+		CRC = (char)counter;
 	}
 
 	char* GenPacket() {
 		if (RawBuffer) {
 			delete[] RawBuffer;
+			RawBuffer = nullptr;
 		}
 
-		Head.Length += HEADERSIZE + sizeof(CRC);
-		//in order to create and send a packet, the steps are: packet(), setbodydata(char*, int), this
-		//packet keeps size at 0, setbodydata adds the size of the body. so we're still missing size of head and crc
+		int totalLength = Head.Length;
+		if (totalLength < HEADERSIZE + sizeof(CRC)) return nullptr;
 
-		RawBuffer = new char[Head.Length];
+		RawBuffer = new char[totalLength];
 
 		memcpy(RawBuffer, &Head, HEADERSIZE);
-		memcpy(RawBuffer + HEADERSIZE, Data, (Head.Length - HEADERSIZE - sizeof(CRC)));
+
+		int bodyLength = totalLength - HEADERSIZE - sizeof(CRC);
+		if (Data && bodyLength > 0) {
+			memcpy(RawBuffer + HEADERSIZE, Data, bodyLength);
+		}
 
 		CalcCRC();
-		memcpy((RawBuffer + Head.Length - sizeof(CRC)), &CRC, sizeof(CRC));
+		RawBuffer[totalLength - sizeof(CRC)] = CRC;
 
 		return RawBuffer;
+	}
+
+	char GetCRC() {
+		return CRC;
+	}
+
+	~PktDef() {
+		if (RawBuffer) delete[] RawBuffer;
+		if (Data) delete[] Data;
 	}
 };
