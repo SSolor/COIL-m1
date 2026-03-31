@@ -25,16 +25,19 @@ struct DriveBody {
 	unsigned char Power;
 };
 
-struct TurnBody {
-	unsigned char Direction;
-	unsigned short int Duration; //hopefully this is doesn't get padded
-};
+#pragma pack(push, 1) //force size to 3
+	struct TurnBody {
+		uint8_t Direction;
+		uint16_t Duration;
+	};
+#pragma pack(pop)
+
 
 typedef enum CmdType {
 	//unsure if these should just be numbers or represent the bitfield
 	DRIVE,
-	RESPONSE, //for "status"
-	SLEEP
+	SLEEP,
+	RESPONSE //for "status"
 };
 
 class PktDef {

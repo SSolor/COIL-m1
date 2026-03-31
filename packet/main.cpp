@@ -1,16 +1,27 @@
-#include <windows.networking.sockets.h>
-#pragma comment(lib, "Ws2_32.lib")
+//#include <windows.networking.sockets.h>
+//#pragma comment(lib, "Ws2_32.lib")
 
-
+#include "socket.h"
 #include "packet.h"
+
 #include <stdio.h>
 
 int main(void) {
 
 	PktDef p;
-	p.SetCmd(RESPONSE);
+	p.SetCmd(SLEEP);
 	p.SetPktCount(5);
-	//response has no body
+
+	DriveBody drive;
+	drive.Direction = LEFT;
+	drive.Duration = 7;
+	drive.Power = 0;
+
+	TurnBody turn;
+	turn.Direction = RIGHT;
+	turn.Duration = 12;
+
+	//p.SetBodyData((char*) & turn, sizeof(turn));
 	char* x = p.GenPacket();
 	printf("our packet: %d\n", &x);
 	for (int i = 0;i < p.GetLength();i++) {
@@ -18,7 +29,7 @@ int main(void) {
 	}
 	printf("\n");
 
-
+	/*
 	WSADATA wsaData;
 	if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
 		return -1;
@@ -46,17 +57,17 @@ int main(void) {
 	int a=recvfrom(ClientSocket, recv, 150, 0, (struct sockaddr*)&SvrAddr, &SaddrLen);
 	printf("%d\n", a);
 	for (int i = 0; i < a;i++) {
-		printf("%d",recv[i]);
+		printf("%d,",recv[i]);
 	}
 
 	PktDef r(recv);
-	printf("\nwe got: %d, %d, %d, %s\n", r.GetAck(), r.GetCmd(), r.GetPktCount(), r.GetBodyData());
-
-	//	MySocket soc(CLIENT, "10.172.41.150", 29500, UDP, 100);
-	//soc.SendData(x, sizeof(x));
+	printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", r.GetAck(), r.GetCmd(), r.GetPktCount(), r.GetBodyData());
+	*/
+		MySocket soc(CLIENT, "10.172.41.150", 29500, UDP, 100);
+	soc.SendData(x, p.GetLength());
 	
-	//char rc[150];
-	//int recvied = soc.GetData(rc);
+	char rc[150];
+	int recvied = soc.GetData(rc);
 
 	return 0;
 }

@@ -253,7 +253,8 @@ public:
 			send(ConnectionSocket, dat, size, 0);
 		}
 		else if (connectionType == UDP && mySocket==CLIENT) {
-			sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr));
+			int res=sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr));
+			printf("size send: %d\n", res);
 		}
 		else if (connectionType == UDP && mySocket == SERVER) {
 			sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&CliAddr, AddrLen);
