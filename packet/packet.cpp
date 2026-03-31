@@ -62,29 +62,26 @@ public:
 	PktDef() {
 		memset(&Head, 0, HEADERSIZE);
 		Data = nullptr;
-		RawBuffer = nullptr;
 		CRC = 0;
+
+		Head.Length = HEADERSIZE + sizeof(CRC);
+		//since it represents entire length we can't forget this
+
+		RawBuffer = nullptr;
 	}
 
 	PktDef(char* Rawdat) {
-		if (!Rawdat) return;
-
+		//head
 		memcpy(&Head, Rawdat, HEADERSIZE);
 
-		int totalLength = Head.Length;
-		if (totalLength < HEADERSIZE + (int)sizeof(CRC)) return;
+		//body
+		Data = new char[Head.Length - HEADERSIZE - sizeof(CRC)];
+		memcpy(Data, Rawdat + HEADERSIZE, Head.Length - HEADERSIZE - sizeof(CRC));
 
-		int bodyLength = totalLength - HEADERSIZE - sizeof(CRC);
+		//tail
+		memcpy(&CRC, (Rawdat + Head.Length - sizeof(CRC)), sizeof(CRC));
 
-		RawBuffer = new char[totalLength];
-		memcpy(RawBuffer, Rawdat, totalLength);
-
-		if (bodyLength > 0) {
-			Data = new char[bodyLength];
-			memcpy(Data, Rawdat + HEADERSIZE, bodyLength);
-		}
-
-		CRC = Rawdat[totalLength - sizeof(CRC)];
+		RawBuffer = nullptr;//keep this empty
 	}
 
 	void SetCmd(CmdType cmd) {
@@ -161,9 +158,21 @@ public:
 		return (char)counter == CRC;
 	}
 
-
 	void CalcCRC() {
 		int counter = 0;
+
+		//it is presumed that this is *only* supposed to be called as the last phase of genpkt
+		//wherein it wants to certify the integrity of RawBuffer (thus, it checks RawBuffer)
+		for (int byte = 0; byte < (Head.Length - sizeof(CRC));byte++) {
+			for (int bit = 0; bit < 8;bit++) {
+				if (RawBuffer[byte] & (1 << bit)) {
+					counter++;
+				}
+			}
+		}
+
+		//if this is not the case, and it just checks the packet, generally, use this instead:
+		/*
 		char* Hdr = (char*)&Head;
 
 		for (int byte = 0; byte < HEADERSIZE; byte++) {
@@ -182,32 +191,30 @@ public:
 					counter++;
 				}
 			}
-		}
+		}*/
 
-		CRC = (char)counter;
+		CRC = counter;
 	}
 
 	char* GenPacket() {
 		if (RawBuffer) {
 			delete[] RawBuffer;
-			RawBuffer = nullptr;
 		}
 
-		int totalLength = Head.Length;
-		if (totalLength < HEADERSIZE + sizeof(CRC)) return nullptr;
+		//header+crc accounted for in constructor, data accounted for in setbodydata
+		RawBuffer = new char[Head.Length];
 
-		RawBuffer = new char[totalLength];
-
+		//putting head into buffer
 		memcpy(RawBuffer, &Head, HEADERSIZE);
+		//putting body into buffer
+		memcpy(RawBuffer + HEADERSIZE, Data, (Head.Length - HEADERSIZE - sizeof(CRC)));
 
-		int bodyLength = totalLength - HEADERSIZE - sizeof(CRC);
-		if (Data && bodyLength > 0) {
-			memcpy(RawBuffer + HEADERSIZE, Data, bodyLength);
-		}
-
+		//calculating crc,
 		CalcCRC();
-		RawBuffer[totalLength - sizeof(CRC)] = CRC;
+		//putting it into the buffer
+		memcpy(RawBuffer + Head.Length - sizeof(CRC), &CRC, sizeof(CRC));
 
+		
 		return RawBuffer;
 	}
 
