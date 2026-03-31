@@ -1,21 +1,28 @@
 //COIL milestone 2, socket definitions
 
-//we're gonna need an ifdef windows, i'm thinking
-//lets just try to get this to work first
-#include <winsock2.h>
-#include <ws2tcpip.h> 
+#ifdef _WIN32
+	#include <winsock2.h>
+	#include <ws2tcpip.h> 
 	//in your most recent example, you used "<windows.networking.sockets.h>", 
 	//but I couldn't get sockaddrlen to work wiht that
-#pragma comment(lib, "Ws2_32.lib")
+	#pragma comment(lib, "Ws2_32.lib")
+	bool WINDOWS = true;
+	int close(SOCKET s) { return 0; }
+	#define	XXX int
+#elif __linux__ 
+	#include <unistd.h>
+	#include <sys/socket.h>
+	#include <netinet/in.h>
 
-//if linux:
-/*
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+	#include <arpa/inet.h> //needed for inet_addr()
+	#define INVALID_SOCKET ~0 //this is how windows does it idk man
+	#define SOCKET_ERROR -1
+	#define SOCKET int
+	int closesocket(int) { return 0; }
+	bool WINDOWS = false;
+#endif
 
-#include <arpa/inet.h> //needed for inet_addr()
-*/
+
 
 #include <string>
 
@@ -31,18 +38,117 @@ const int DEFAULT_SIZE = 0;
 
 class MySocket {
 	char* Buffer;
+	int MaxSize;
+
 	SOCKET WelcomeSocket;
 	SOCKET ConnectionSocket;
-	struct sockaddr_in SvrAddr;
-	socklen_t SAddrLen;// ??
-	//do we need extras for udp?
-	SocketType mySocket;
+	bool bTCPConnect;
+
 	std::string IPAddr;
 	unsigned int Port;
+	struct sockaddr_in SvrAddr;
+	//udp needs the following
+	struct sockaddr_in CliAddr;
+	int AddrLen;
+
+	SocketType mySocket;
 	ConnectionType connectionType;
-	bool bTCPConnect;
-	bool TCPserv; //extra for qol
-	int MaxSize;
+
+
+	int socketStart() {
+		if (WINDOWS) {
+			WSADATA wsaData;
+			if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) 
+				return -1;
+		}
+
+		//socket
+		if (mySocket == CLIENT) {
+
+			if(connectionType==TCP)
+				ConnectionSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			else
+				ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+			if (ConnectionSocket == INVALID_SOCKET) {
+				if(WINDOWS)
+					WSACleanup();
+				return -1;
+			}
+
+			SvrAddr.sin_family = AF_INET;
+			SvrAddr.sin_port = htons(Port);
+			SvrAddr.sin_addr.s_addr = inet_addr(IPAddr.c_str());
+
+			//udp is ready to send/recieve, tcp still has to connect()
+			return 0;
+		}
+		else if (connectionType == UDP && mySocket == SERVER) {
+
+			ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+			if (ConnectionSocket == INVALID_SOCKET) {
+				if (WINDOWS)
+					WSACleanup();
+				return -1;
+			}
+
+			SvrAddr.sin_family = AF_INET;
+			SvrAddr.sin_addr.s_addr = INADDR_ANY;
+			SvrAddr.sin_port = htons(Port);
+
+			//bind
+			if (bind(ConnectionSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR){
+				if (WINDOWS) {
+					closesocket(ConnectionSocket);
+					WSACleanup();
+				}
+				else
+					close(ConnectionSocket);
+				return -1;
+			}
+
+			//udp server is able to recvfrom at this stage
+			return 0;
+		}
+		else if (connectionType == TCP && mySocket == SERVER) {
+			WelcomeSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (WelcomeSocket == INVALID_SOCKET) {
+				if (WINDOWS)
+					WSACleanup();
+				return -1;
+			}
+
+			SvrAddr.sin_family = AF_INET;
+			SvrAddr.sin_addr.s_addr = INADDR_ANY;
+			SvrAddr.sin_port = htons(Port);
+
+			//bind
+			if (bind(WelcomeSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
+				if (WINDOWS) {
+					closesocket(WelcomeSocket);
+					WSACleanup();
+				}
+				else
+					close(WelcomeSocket);
+				return -1;
+			}
+
+			//listen
+			if (listen(WelcomeSocket, 1) == SOCKET_ERROR) { //I think 1 is fine here?
+				if (WINDOWS) {
+					closesocket(WelcomeSocket);
+					WSACleanup();
+				}
+				else
+					close(WelcomeSocket);
+				return -1;
+			}
+
+			//tcp server is able to accept() from this stage
+			return 0;
+		}
+	}
+
 public:
 	MySocket(SocketType stype, std::string IP, unsigned int port, ConnectionType ctype, unsigned int size) {
 		//basic values
@@ -50,70 +156,24 @@ public:
 		IPAddr = IP;
 		Port = port;
 		connectionType = ctype;
-
-		if (connectionType == TCP && mySocket == SERVER)
-			TCPserv = true;
 		
-		if (size > DEFAULT_SIZE)
+		if (size > DEFAULT_SIZE) {
 			Buffer = new char[size];
-		else
+			MaxSize = size;
+		}
+		else {
 			Buffer = new char[DEFAULT_SIZE];
-
-
-		//socket startup
-		
-		//ifdef windows
-		WSADATA wsaData;
-		if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
-			exit(EXIT_FAILURE);//if one of you knows how to make this throw an exception that'd be great
-		}
-
-		//socket
-		if (TCPserv == true) {
-			WelcomeSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-			if (WelcomeSocket == INVALID_SOCKET) {
-				//windows
-				WSACleanup();
-				exit(EXIT_FAILURE);//make this an exception if you could
-			}
-		}
-		else if (connectionType == TCP) {
-			ConnectionSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		}
-		else if (connectionType == UDP) {
-			ConnectionSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		}
-		if (!TCPserv) {
-			if (ConnectionSocket == INVALID_SOCKET) {
-				//windows
-				WSACleanup();
-				exit(EXIT_FAILURE);
-			}
-		}
-
-		//consolidate info
-		SvrAddr.sin_family = AF_INET;
-		if (mySocket == SERVER)
-			SvrAddr.sin_addr.s_addr = INADDR_ANY;
-		SvrAddr.sin_port = htons(Port);
-		if (mySocket == CLIENT)
-			SvrAddr.sin_addr.s_addr = inet_addr(IPAddr.c_str());
-
-		//bind (for servers)
-		if (mySocket == SERVER) {
-			if (bind((connectionType == TCP) ? WelcomeSocket : ConnectionSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
-				//windows
-				closesocket((connectionType == TCP) ? WelcomeSocket : ConnectionSocket);
-				WSACleanup();
-				//linux
-				//close((connectionType == TCP) ? WelcomeSocket : ConnectionSocket);
-				exit(EXIT_FAILURE);
-			}
+			MaxSize = DEFAULT_SIZE;
 		}
 
 
+		int ok=socketStart();
+		if (ok != 0) {
+			exit(EXIT_FAILURE);//can't return on a constructor, could this be an exception instead?
+		}
 	}
 	~MySocket() {
+		WSACleanup();
 		if (Buffer)
 			delete[] Buffer;
 		//I don't believe anything else is dynamic
@@ -126,10 +186,34 @@ public:
 			return;
 		}
 		else {
+			if (mySocket == CLIENT) {
 
-
+				if (connect(ConnectionSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
+					if (WINDOWS)
+						closesocket(ConnectionSocket);
+					else
+						close(ConnectionSocket);
+					fprintf(stderr, "failed to connect\n");
+					return;
+				}
+				bTCPConnect = true;
+			//client can now send and recieve
+			}
+			else if (mySocket == SERVER) {
+				ConnectionSocket = SOCKET_ERROR;
+				if ((ConnectionSocket = accept(WelcomeSocket, NULL, NULL)) == SOCKET_ERROR) {
+					if (WINDOWS)
+						closesocket(WelcomeSocket);
+					else 
+						close(WelcomeSocket);
+					fprintf(stderr, "failed to accept\n");
+					return;
+				}
+				bTCPConnect = true;
+			//server can now send and recieve
+			}
+			return;
 		}
-
 	}
 	void DisconnectTCP() {
 		if (connectionType == UDP || bTCPConnect == false) {
@@ -137,39 +221,61 @@ public:
 			return;
 		}
 		else{
-			//windows
-			closesocket(ConnectionSocket);
+			if(WINDOWS)
+				closesocket(ConnectionSocket);
+			else
+				close(ConnectionSocket);
 
-			//linux
-			//close(ConnectionSocket);
-
-			if (mySocket == SERVER) {
-				//windows
-				closesocket(WelcomeSocket);
-
-				//linux
-				//close(WelcomeSocket);
-			}
-
+			//I'm assuming this function doesn't want to 'end everything',
+			//so I'm not closing welcomesocket or calling wsacleanup
 			bTCPConnect == false;
 
-			//windows
-			WSACleanup();
 			return;
 		}
 	}
-	void SendData(const char* dat, int size) {
-		if (connectionType == TCP && bTCPConnect==true) {
-			//dont want to call this without having connected
-			send(ConnectionSocket, dat, size, 0);
+	void KillTCPServ() {
+		if (connectionType == TCP && bTCPConnect == false && mySocket == SERVER) {
+			if (WINDOWS)
+				closesocket(WelcomeSocket);
+			else
+				close(WelcomeSocket);
 		}
-		else if (connectionType == UDP) {
-			sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr));
+		else {
+			fprintf(stderr, "you cannot do that\n");
 		}
 		return;
 	}
-	int GetData(char* buf) {
 
+	void SendData(const char* dat, int size) {
+		if (connectionType == TCP && bTCPConnect == true) {
+			//dont want to call this without having connected
+			send(ConnectionSocket, dat, size, 0);
+		}
+		else if (connectionType == UDP && mySocket==CLIENT) {
+			sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr));
+		}
+		else if (connectionType == UDP && mySocket == SERVER) {
+			sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&CliAddr, AddrLen);
+		}
+		else
+			fprintf(stderr, "cannot do that right now\n");
+		return;
+	}
+	int GetData(char* buf) {
+		int recsize;
+		if (connectionType == TCP && bTCPConnect == true) {
+			recsize=recv(ConnectionSocket, Buffer, MaxSize, 0);
+			//if the send data is bigger than maxsize, this might be a problem, but CRCs will tell us to throw away bad packets anyways
+		}
+		else if (connectionType == UDP && mySocket == CLIENT) {
+			recsize = recvfrom(ConnectionSocket, Buffer, MaxSize, 0, (struct sockaddr*)&SvrAddr, &AddrLen);
+
+		}
+		else if (connectionType == UDP && mySocket == SERVER) {
+			recsize = recvfrom(ConnectionSocket, Buffer, MaxSize, 0, (struct sockaddr*)&CliAddr, &AddrLen);
+		}
+		memcpy(buf, Buffer, recsize);
+		return recsize;
 	}
 	std::string GetIPAddr() {return IPAddr;}
 	void SetIPAddr(std::string newaddr) {
