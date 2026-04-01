@@ -108,6 +108,7 @@ public:
 
 	void SetBodyData(char* dat, int size) {
 		if (Data) {
+			Head.Length -= (Head.Length - HEADERSIZE - sizeof(CRC));//aka body size
 			delete[] Data;
 		}
 

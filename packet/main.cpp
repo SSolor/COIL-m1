@@ -8,6 +8,17 @@
 
 int main(void) {
 
+
+	MySocket soc(CLIENT, "10.172.41.150", 29000, TCP, 100);
+	soc.ConnectTCP();
+
+	SocketType Nexpected = SERVER;
+	SocketType expected = CLIENT;
+	soc.SetType(Nexpected);
+
+	printf("expected %d, actual %d\n", expected, soc.GetType());
+	printf("compiles\n");
+	/*
 	PktDef p;
 	p.SetCmd(SLEEP);
 	p.SetPktCount(5);
@@ -36,7 +47,7 @@ int main(void) {
 			return -1;
 		}
 	}
-	
+	*/
 	/*
 	//initializes socket. SOCK_STREAM: TCP
 	SOCKET ClientSocket;
@@ -91,7 +102,7 @@ int main(void) {
 	//int a=recvfrom(ClientSocket, recvi, 150, 0, (struct sockaddr*)&SvrAddr, &SaddrLen);
 	*/
 
-	
+	/*
 	
 		MySocket soc(CLIENT, "10.172.41.150", 29000, TCP, 100);
 		soc.SetCType(TCP);
@@ -130,7 +141,7 @@ int main(void) {
 		printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", rfo.GetAck(), rfo.GetCmd(), rfo.GetPktCount(), rfo.GetBodyData());
 
 
-		
+		*/
 		
 	/*
 	SocketType stype = CLIENT;
@@ -170,6 +181,6 @@ int main(void) {
 	int recsize = recvfrom(ConnectionSocket, recv, 150, 0, (struct sockaddr*)&SvrAddr, &AddrLen);
 	printf("recieved, size: %d\n", recsize);
 	*/
-	WSACleanup();
+	//WSACleanup();
 	return 0;
 }

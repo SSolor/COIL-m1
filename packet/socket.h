@@ -35,7 +35,7 @@ typedef enum SocketType {
 	SERVER
 };
 typedef enum ConnectionType {
-	TCP,
+	TCP=2,
 	UDP
 };
 const int DEFAULT_SIZE = 5;//i'm not sure exactly, but is should at least hold an empty packet, right?
@@ -244,6 +244,10 @@ public:
 		}
 	}
 	void resetSocket() {
+		if (bTCPConnect == true) {
+			fprintf(stderr, "disconnect before reset\n");
+			return;
+		}
 		if (ONWINDOWS)
 			closesocket(ConnectionSocket);
 		else {
@@ -284,7 +288,6 @@ public:
 		}
 		else if (connectionType == UDP && mySocket == SERVER) {
 			sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&CliAddr, AddrLen);
-			printf("sent in servermode\n");
 		}
 		else
 			fprintf(stderr, "cannot send data now\n");
@@ -293,7 +296,7 @@ public:
 	int GetData(char* buf) {
 		if (changesmade == true) {
 			fprintf(stderr, "cannot get data, changes have been made\n");
-			return -1;
+			return -2; //to differentiate between recv error
 		}
 
 		int recsize=0;
@@ -332,7 +335,7 @@ public:
 			Port = newport;
 		return;
 	}
-	int GetPort() {return Port;}
+	unsigned int GetPort() {return Port;}//technically changes return from isntructions but it should be fine?
 
 	SocketType GetType() {return mySocket;}
 	//will block certain functionality until reset
@@ -361,4 +364,5 @@ public:
 		}
 		return;
 	}
+	unsigned int getMaxSize() { return MaxSize; }
 };
