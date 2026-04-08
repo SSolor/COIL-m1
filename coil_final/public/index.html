@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Robot Control</title>
-  <link rel="stylesheet" href="/get_style/style.css" />
+    <link rel="stylesheet" href="/get_style/style.css">
   <script src="/get_script/app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -63,55 +63,56 @@
           <span class="btn-inner">CONNECT</span>
           <span class="btn-glow"></span>
         </button>
-        <button class="btn btn-ghost" id="btnDisconnect" onclick="handleDisconnect()" disabled>
-          DISCONNECT
-        </button>
       </div>
+	  
+
+	  
     </section>
 
-    <!-- ══ PANEL 2 — TELECOMMAND ══════════════════════════════════════════ -->
-    <section class="panel panel-telecommand" id="panelTelecommand">
-      <div class="panel-header">
-        <span class="panel-num">02</span>
-        <h2>TELECOMMAND</h2>
-        <div class="header-line"></div>
-      </div>
 
-      <!-- Drive controls — PUT /telecommand/ -->
-      <div class="drive-grid">
-        <div class="drive-row drive-top">
-          <button class="btn btn-drive" data-cmd="FORWARD" onclick="sendTelecommand(1)">
-            <svg viewBox="0 0 24 24"><path d="M12 4l8 14H4z"/></svg>
-            FWD
-          </button>
-        </div>
-        <div class="drive-row drive-mid">
-          <button class="btn btn-drive" data-cmd="LEFT" onclick="sendTelecommand(4)">
-            <svg viewBox="0 0 24 24"><path d="M20 12L6 4v16z"/></svg>
-            LEFT
-          </button>
-          <button class="btn btn-drive btn-sleep" data-cmd="SLEEP" onclick="sendTelecommand(5)">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg>
-            SLEEP
-          </button>
-          <button class="btn btn-drive" data-cmd="RIGHT" onclick="sendTelecommand(3)">
-            <svg viewBox="0 0 24 24"><path d="M4 12l14-8v16z"/></svg>
-            RIGHT
-          </button>
-        </div>
-        <div class="drive-row drive-bot">
-          <button class="btn btn-drive" data-cmd="BACKWARD" onclick="sendTelecommand(2)">
-            <svg viewBox="0 0 24 24"><path d="M12 20l8-14H4z"/></svg>
-            REV
-          </button>
-        </div>
-      </div>
+   <!-- Telecommand Panel -->
+<section class="panel panel-telecommand" id="panelTelecommand">
+  <div class="panel-header">
+    <span class="panel-num">02</span>
+    <h2>TELECOMMAND</h2>
+    <div class="header-line"></div>
+  </div>
+
+  <!-- Drive controls — PUT /telecommand/ -->
+  <div class="drive-grid">
+    <div class="drive-row drive-top">
+      <button class="btn btn-drive" data-cmd="FORWARD" onclick="sendTelecommand(1)" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 4l8 14H4z"/></svg>
+        FWD
+      </button>
+    </div>
+    <div class="drive-row drive-mid">
+      <button class="btn btn-drive" data-cmd="LEFT" onclick="sendTelecommand(4)" disabled>
+        <svg viewBox="0 0 24 24"><path d="M20 12L6 4v16z"/></svg>
+        LEFT
+      </button>
+	  <button class="btn btn-drive btn-sleep" data-cmd="SLEEP" onclick="handleSleepAndDisconnect()" disabled>
+		<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg>
+		SLEEP
+	  </button>
+      <button class="btn btn-drive" data-cmd="RIGHT" onclick="sendTelecommand(3)" disabled>
+        <svg viewBox="0 0 24 24"><path d="M4 12l14-8v16z"/></svg>
+        RIGHT
+      </button>
+    </div>
+    <div class="drive-row drive-bot">
+      <button class="btn btn-drive" data-cmd="BACKWARD" onclick="sendTelecommand(2)" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 20l8-14H4z"/></svg>
+        REV
+      </button>
+    </div>
+  </div>
 
       <!-- Sliders -->
       <div class="sliders-section">
         <div class="slider-group">
           <div class="slider-label-row">
-            <label for="sliderSpeed">POWER</label>
+            <label for="sliderSpeed">Power</label>
             <span class="slider-val" id="speedVal">90</span>
           </div>
           <input type="range" id="sliderSpeed" class="slider" min="80" max="100" value="90"
@@ -126,28 +127,29 @@
             <label for="sliderDuration">DURATION (s)</label>
             <span class="slider-val" id="durVal">1</span>
           </div>
-          <input type="range" id="sliderDuration" class="slider" min="1" max="10" value="1"
+          <input type="range" id="sliderDuration" class="slider" min="1" max="10" value="1000"
                  oninput="updateSlider('sliderDuration','durVal',this.value)" />
           <div class="slider-ticks">
-            <span>0</span><span>2500</span><span>5000</span>
+            <span>0</span><span>5</span><span>10</span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ══ PANEL 3 — TELEMETRY LOG ═══════════════════════════════════════ -->
-    <section class="panel panel-log" id="panelLog">
-      <div class="panel-header">
-        <span class="panel-num">03</span>
-        <h2>PACKET LOG</h2>
-        <div class="header-line"></div>
-        <button class="btn btn-tiny" onclick="clearLog()">CLR</button>
-        <button class="btn btn-tiny btn-telem" onclick="requestTelemetry()">REQ HK</button>
-      </div>
-      <div class="log-viewport" id="logViewport">
-        <div class="log-empty">Awaiting data…</div>
-      </div>
-    </section>
+
+<!-- Telemetry Log Panel -->
+<section class="panel panel-log" id="panelLog">
+  <div class="panel-header">
+    <span class="panel-num">03</span>
+    <h2>PACKET LOG</h2>
+    <div class="header-line"></div>
+    <button class="btn btn-tiny" onclick="clearLog()">CLR</button>
+    <button class="btn btn-tiny btn-telem" onclick="requestTelemetry()" disabled>REQ HK</button>
+  </div>
+  <div class="log-viewport" id="logViewport">
+    <div class="log-empty">Awaiting data…</div>
+  </div>
+</section>
 
   </main>
 

@@ -112,6 +112,7 @@ int main(){
             res.code = 400;  // Bad Request
             res.write("Invalid JSON format");
             res.end();
+            return;
         }
         ConnectionType typ = (ConnectionType) json_body["Ctype"].i();
        
@@ -145,6 +146,7 @@ int main(){
                 res.code = 400;  // Bad Request
                 res.write("Invalid JSON format");
                 res.end();
+                return;
             }
             int cmd = json_body["command"].i();
 
@@ -179,6 +181,7 @@ int main(){
                 res.code = 400;  // Bad Request
                 res.write("Invalid JSON format");
                 res.end();
+                return;
             }
             char* packed = commnd.GenPacket();
 
@@ -200,7 +203,7 @@ int main(){
             results<<"\nAck: "<<telack.GetAck()<<" |Command: "<<telack.GetCmd()<<" |pkt num: "<<telack.GetPktCount()<<" |body:\n"<<telack.GetBodyData();
 
             //since sleep is the kill command:
-            if(soc->GetCType==TCP){
+            if(soc->GetCType()==TCP && cmd ==5){
                 soc->DisconnectTCP();
             }
 
@@ -275,8 +278,72 @@ int main(){
         res.end();
     });
 
-    CROW_ROUTE(app,"/routing_table")
-    ([](const request &req, response &res){
+    CROW_ROUTE(app,"/routing_table/<string>/<int>/<string>/<int>/").methods(HTTPMethod::Post)
+    ([&soc](const request &req, response &res, string lisIPadr, int lisPortno, string senIPadr,int senPortno){
+        if(soc){
+            delete soc;
+        }
+        json::rvalue json_body = json::load(req.body);
+        if (!json_body) {
+            res.code = 400;  // Bad Request
+            res.write("Invalid JSON format");
+            res.end();
+            return;
+        }
+        ConnectionType typ = (ConnectionType) json_body["Ctype"].i();
+
+        soc = new MySocket(SERVER,lisIPadr,lisPortno,typ,APPROPRIATE_SIZE);
+
+        res.set_header("Content-Type","text/plain");
+        res.code=202;//"accepted, but things might still be happening"
+        res.write("routing on server mode. will await connection");
+        res.end();
+
+        //from here we're kinda stuck in a waiting state, so we sent the resposne back early
+        MySocket routedsoc = MySocket(CLIENT,senIPadr,senPortno,typ,APPROPRIATE_SIZE);
+        bool on=true;
+
+        if(typ==TCP){
+            soc->ConnectTCP(); 
+            routedsoc.ConnectTCP(); 
+        }
+        while(on){//I've never known how to keep a server going without making it inescapable. not doing multithread for this either
+            char rec[APPROPRIATE_SIZE];
+            int recsize=soc->GetData(rec);
+            PktDef transmit(rec);
+
+             routedsoc.SendData(rec,transmit.GetLength());
+
+            char recrouted[APPROPRIATE_SIZE];
+            int recrsize=routedsoc.GetData(recrouted);
+
+            soc->SendData(recrouted,recrsize);
+
+            switch(transmit.GetCmd()){
+                case DRIVE:
+                   //nothing more needs to be done
+                    break;
+                case SLEEP:
+                    //since sleep is kill:
+                    if(typ==TCP){
+                        routedsoc.DisconnectTCP();
+                        soc->DisconnectTCP();
+                        soc->KillTCPServ();
+                    }
+                    on=false;
+                    break;
+                case RESPONSE:
+                    //since the amount this returns is variable we gotta check here
+                    PktDef checkack(recrouted);
+                    if(checkack.GetAck()){
+                        char recrouted2[APPROPRIATE_SIZE];
+                        int recrsize2=routedsoc.GetData(recrouted2);
+
+                        soc->SendData(recrouted2,recrsize2);
+                    }
+                    break;
+            }
+        }
 
     });
 

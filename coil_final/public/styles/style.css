@@ -369,6 +369,7 @@ body {
   stroke: currentColor; fill: none; stroke-width: 1.5;
 }
 
+
 /* ── Sliders ─────────────────────────────────── */
 .sliders-section {
   display: flex;
@@ -594,4 +595,72 @@ input:checked + .slider:before {
   margin-right: 10px;
   vertical-align: middle;
   cursor: pointer;
+}
+
+.panel-routing {
+  padding: 20px;
+  background-color: #222;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.panel-header h2 {
+  color: #fff;
+}
+
+.field-group label {
+  color: #bbb;
+}
+
+.field-group input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  border: 1px solid #444;
+  background-color: #333;
+  color: #fff;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border: none;
+  padding: 10px 20px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.switch input {
+  display: none;
+}
+
+.switch .slider {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  background-color: #ccc;
+  border-radius: 34px;
+}
+
+.switch .slider:before {
+  position: absolute;
+  content: '';
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+}
+
+.switch input:checked + .slider {
+  background-color: #4caf50;
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(14px);
 }

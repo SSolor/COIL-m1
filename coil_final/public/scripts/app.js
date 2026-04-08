@@ -73,9 +73,26 @@ function setConnected(ip, port) {
   document.getElementById('connStatus').textContent = 'CONNECTED';
   document.getElementById('connLabel').textContent = `${ip}:${port}`;
   document.getElementById('btnConnect').disabled = true;
-  document.getElementById('btnDisconnect').disabled = false;
   document.getElementById('ipAddr').disabled = true;
   document.getElementById('portNum').disabled = true;
+
+  // Enable Telecommand buttons
+  const telecommandButtons = document.querySelectorAll('.panel-telecommand button');
+  telecommandButtons.forEach(button => {
+    button.disabled = false;
+  });
+
+  // Enable Telemetry buttons
+  const telemetryButtons = document.querySelectorAll('.panel-log button');
+  telemetryButtons.forEach(button => {
+    button.disabled = false;
+  });
+  
+    // Enable sliders
+  const sliders = document.querySelectorAll('.slider');
+  sliders.forEach(slider => {
+    slider.disabled = false;
+  });
 }
 
 function setDisconnected() {
@@ -87,11 +104,29 @@ function setDisconnected() {
   document.getElementById('connStatus').textContent = 'DISCONNECTED';
   document.getElementById('connLabel').textContent = '—';
   document.getElementById('btnConnect').disabled = false;
-  document.getElementById('btnDisconnect').disabled = true;
+
+  // Disable IP and Port fields
   document.getElementById('ipAddr').disabled = false;
   document.getElementById('portNum').disabled = false;
-}
 
+  // Disable Telecommand buttons (if necessary)
+  const telecommandButtons = document.querySelectorAll('.panel-telecommand button');
+  telecommandButtons.forEach(button => {
+    button.disabled = true;
+  });
+
+  // Disable Telemetry buttons
+  const telemetryButtons = document.querySelectorAll('.panel-log button');
+  telemetryButtons.forEach(button => {
+    button.disabled = true;
+  });
+
+  // Disable sliders
+  const sliders = document.querySelectorAll('.slider');
+  sliders.forEach(slider => {
+    slider.disabled = true;
+  });
+}
 /* ══════════════════════════════════════════════
    POST /connect/<string>/<int>
 ══════════════════════════════════════════════ */
@@ -143,11 +178,22 @@ async function handleConnect() {
     setConnected(ip, port);
   }
 }
+
+
 function handleDisconnect() {
   log('INFO', `Disconnecting from ${state.ip}:${state.port}`);
   setDisconnected();
 }
 
+async function handleSleepAndDisconnect() {
+	// Now disconnect the connection and disable relevant UI elements
+  log('INFO', `Disconnecting from ${state.ip}:${state.port}`);
+  setDisconnected();
+  
+  // First, send the Sleep command
+  await sendTelecommand(5);  // SLEEP command
+  
+}
 /* ══════════════════════════════════════════════
    PUT /telecommand/
    Buttons: FORWARD · BACKWARD · LEFT · RIGHT · SLEEP
