@@ -117,8 +117,10 @@ int main(){
         ConnectionType typ = (ConnectionType) json_body["Ctype"].i();
        
         soc = new MySocket(CLIENT,IPadr,Portno,typ,APPROPRIATE_SIZE);
+        printf("log: attempted to setup socket\n");
         if(typ==TCP){
             soc->ConnectTCP();
+            printf("log: attempted tcp connect\n");
             //technically we don't even need this as the function covers for it, but its better to have it
         }
 
@@ -187,11 +189,13 @@ int main(){
 
             //the beauty of socket is we don't care how it's connected
             soc->SendData(packed,commnd.GetLength());
+            printf("log: sent packet\n");
 
             //getting the response back:
             char rc[APPROPRIATE_SIZE];
             int rcsize=soc->GetData(rc);
             PktDef telack(rc);
+            printf("log: revcieved packet\n");
 
             //printing raw
             results <<"ACKNOWLEDGMENT:\nsize: "<<rcsize<<"\nraw value:\n";
@@ -205,6 +209,7 @@ int main(){
             //since sleep is the kill command:
             if(soc->GetCType()==TCP && cmd ==5){
                 soc->DisconnectTCP();
+                printf("log: disconnected tcp\n");
             }
 
             res.write(results.str());
@@ -231,11 +236,13 @@ int main(){
 
             //the beauty of socket is we don't care how it's connected
             soc->SendData(packed,telem.GetLength());
+            printf("log: sent packet\n");
 
             //getting the response back:
             char rc[APPROPRIATE_SIZE];
             int rcsize=soc->GetData(rc);
             PktDef telack(rc);
+            printf("log: recieved packet");
 
             //printing raw
             results <<"ACKNOWLEDGMENT:\nsize: "<<rcsize<<"\nraw value:\n";
@@ -249,6 +256,7 @@ int main(){
             if(telack.GetAck()){
                 char rc2[APPROPRIATE_SIZE];
                 int rcsize2=soc->GetData(rc2);
+                printf("log: recived additional telem packet\n");
                 PktDef teldat(rc2);
                 telemetry teletele;
                 memcpy(&teletele,teldat.GetBodyData(),sizeof(teletele));
@@ -293,6 +301,7 @@ int main(){
         ConnectionType typ = (ConnectionType) json_body["Ctype"].i();
 
         soc = new MySocket(SERVER,lisIPadr,lisPortno,typ,APPROPRIATE_SIZE);
+        printf("log: started server for routing\n");
 
         res.set_header("Content-Type","text/plain");
         res.code=202;//"accepted, but things might still be happening"
@@ -306,18 +315,23 @@ int main(){
         if(typ==TCP){
             soc->ConnectTCP(); 
             routedsoc.ConnectTCP(); 
+            printf("log: connected server and client tcp\n");
         }
         while(on){//I've never known how to keep a server going without making it inescapable. not doing multithread for this either
             char rec[APPROPRIATE_SIZE];
             int recsize=soc->GetData(rec);
+            printf("log: recieved packet from other app\n");
             PktDef transmit(rec);
 
              routedsoc.SendData(rec,transmit.GetLength());
+             printf("log: routed packet through to destination\n");
 
             char recrouted[APPROPRIATE_SIZE];
             int recrsize=routedsoc.GetData(recrouted);
+            printf("log: recieved packet from dest\n");
 
             soc->SendData(recrouted,recrsize);
+            printf("log: sent packet back to origin\n");
 
             switch(transmit.GetCmd()){
                 case DRIVE:
@@ -329,6 +343,7 @@ int main(){
                         routedsoc.DisconnectTCP();
                         soc->DisconnectTCP();
                         soc->KillTCPServ();
+                        printf("log: isconnected and killed tcp\n");
                     }
                     on=false;
                     break;
@@ -340,6 +355,7 @@ int main(){
                         int recrsize2=routedsoc.GetData(recrouted2);
 
                         soc->SendData(recrouted2,recrsize2);
+                        printf("recieved and sent back additional telemetry packet\n");
                     }
                     break;
             }
