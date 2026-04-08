@@ -1,15 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>robot controller</title>
-    <link rel="stylesheet" href="/get_style/styles.css">
-    <script src="/get_script/main.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robot Control</title>
+  <link rel="stylesheet" href="/get_style/style.css" />
+  <script src="/get_script/app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 
-    <h1>hello we're doing a bunch of bullshit here</h1>
+  <!-- Scanline overlay -->
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="grid-bg" aria-hidden="true"></div>
 
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo-mark">▸</span>
+      <span class="logo-text">Robot <span class="accent">Control</span></span>
+    </div>
+    <div class="status-strip">
+      <span class="status-dot" id="connDot"></span>
+      <span id="connStatus">DISCONNECTED</span>
+      <span class="divider">|</span>
+      <span id="connLabel">—</span>
+    </div>
+    <div class="topbar-right">
+      <span class="clock" id="clock"></span>
+    </div>
+  </header>
+
+  <main class="workspace">
+
+    <!-- ══ PANEL 1 — CONNECTION ══════════════════════════════════════════ -->
+    <section class="panel panel-connect" id="panelConnect">
+      <div class="panel-header">
+        <span class="panel-num">01</span>
+        <h2>ESTABLISH LINK</h2>
+        <div class="header-line"></div>
+      </div>
+
+      <!-- POST /connect/<string>/<int> -->
+      <div class="connect-form" id="connectForm">
+        <div class="field-group">
+          <label for="ipAddr">IP ADDRESS</label>
+          <input type="text" id="ipAddr" placeholder="192.168.1.100"
+                 pattern="^(\d{1,3}\.){3}\d{1,3}$" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="field-group">
+          <label for="portNum">PORT</label>
+          <input type="number" id="portNum" placeholder="5000" min="1" max="65535" />
+        </div>
+		  <div class="field-group">
+			<label for="toggleCtype">UDP or TCP</label>
+			<label class="switch">
+			  <input type="checkbox" id="toggleCtype">
+			  <span class="slider"></span>
+			</label>
+		  </div>
+		  <button class="btn btn-primary" id="btnConnect" onclick="handleConnect()">
+          <span class="btn-inner">CONNECT</span>
+          <span class="btn-glow"></span>
+        </button>
+        <button class="btn btn-ghost" id="btnDisconnect" onclick="handleDisconnect()" disabled>
+          DISCONNECT
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 2 — TELECOMMAND ══════════════════════════════════════════ -->
+    <section class="panel panel-telecommand" id="panelTelecommand">
+      <div class="panel-header">
+        <span class="panel-num">02</span>
+        <h2>TELECOMMAND</h2>
+        <div class="header-line"></div>
+      </div>
+
+      <!-- Drive controls — PUT /telecommand/ -->
+      <div class="drive-grid">
+        <div class="drive-row drive-top">
+          <button class="btn btn-drive" data-cmd="FORWARD" onclick="sendTelecommand(1)">
+            <svg viewBox="0 0 24 24"><path d="M12 4l8 14H4z"/></svg>
+            FWD
+          </button>
+        </div>
+        <div class="drive-row drive-mid">
+          <button class="btn btn-drive" data-cmd="LEFT" onclick="sendTelecommand(4)">
+            <svg viewBox="0 0 24 24"><path d="M20 12L6 4v16z"/></svg>
+            LEFT
+          </button>
+          <button class="btn btn-drive btn-sleep" data-cmd="SLEEP" onclick="sendTelecommand(5)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 9v6"/></svg>
+            SLEEP
+          </button>
+          <button class="btn btn-drive" data-cmd="RIGHT" onclick="sendTelecommand(3)">
+            <svg viewBox="0 0 24 24"><path d="M4 12l14-8v16z"/></svg>
+            RIGHT
+          </button>
+        </div>
+        <div class="drive-row drive-bot">
+          <button class="btn btn-drive" data-cmd="BACKWARD" onclick="sendTelecommand(2)">
+            <svg viewBox="0 0 24 24"><path d="M12 20l8-14H4z"/></svg>
+            REV
+          </button>
+        </div>
+      </div>
+
+      <!-- Sliders -->
+      <div class="sliders-section">
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label for="sliderSpeed">POWER</label>
+            <span class="slider-val" id="speedVal">90</span>
+          </div>
+          <input type="range" id="sliderSpeed" class="slider" min="80" max="100" value="90"
+                 oninput="updateSlider('sliderSpeed','speedVal',this.value)" />
+          <div class="slider-ticks">
+            <span>0</span><span>HALF</span><span>MAX</span>
+          </div>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <label for="sliderDuration">DURATION (s)</label>
+            <span class="slider-val" id="durVal">1</span>
+          </div>
+          <input type="range" id="sliderDuration" class="slider" min="1" max="10" value="1"
+                 oninput="updateSlider('sliderDuration','durVal',this.value)" />
+          <div class="slider-ticks">
+            <span>0</span><span>2500</span><span>5000</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PANEL 3 — TELEMETRY LOG ═══════════════════════════════════════ -->
+    <section class="panel panel-log" id="panelLog">
+      <div class="panel-header">
+        <span class="panel-num">03</span>
+        <h2>PACKET LOG</h2>
+        <div class="header-line"></div>
+        <button class="btn btn-tiny" onclick="clearLog()">CLR</button>
+        <button class="btn btn-tiny btn-telem" onclick="requestTelemetry()">REQ HK</button>
+      </div>
+      <div class="log-viewport" id="logViewport">
+        <div class="log-empty">Awaiting data…</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="statusbar">
+    <span id="sbLeft">CROW/HTTP · REST API</span>
+    <span id="sbCenter">—</span>
+    <span id="sbRight">CSCN72050</span>
+  </footer>
 
 </body>
 </html>

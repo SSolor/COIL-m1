@@ -167,7 +167,6 @@ public:
 			Buffer = new char[DEFAULT_SIZE];
 			MaxSize = DEFAULT_SIZE;
 		}
-
 		int ok=socketStart();
 		if (ok != 0) {
 			fprintf(stderr, "socket or bind failed\n");

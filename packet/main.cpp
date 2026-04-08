@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 int main(void) {
+
 	/*
 
 	MySocket soc(CLIENT, "10.172.41.150", 29000, TCP, 100);
@@ -40,14 +41,15 @@ int main(void) {
 		printf("%d", x[i]);
 	}
 	printf("\n");
-
-
+	
+	
 #ifdef _WIN32
 		WSADATA wsaData;
 		if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
 			return -1;
 		}
 #endif
+
 	
 	/*
 	//initializes socket. SOCK_STREAM: TCP
@@ -105,9 +107,9 @@ int main(void) {
 
 	
 	
-		MySocket soc(CLIENT, "10.172.41.150", 29000, TCP, 100);
-		soc.SetCType(TCP);
-		soc.ConnectTCP();
+		MySocket soc(CLIENT, "10.172.41.150", 29500, UDP, 100);
+		//soc.SetCType(TCP);
+	//	soc.ConnectTCP();
 
 		//soc.ConnectTCP();
 		soc.SendData(x, p.GetLength());
@@ -135,7 +137,11 @@ int main(void) {
 		PktDef r2(rc2);
 		printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", r2.GetAck(), r2.GetCmd(), r2.GetPktCount(), r2.GetBodyData());
 
+		telemetry t;
+		memcpy(&t, r2.GetBodyData(), sizeof(t));
+		printf("translated, this means: last packet: %d, grade %d, hits %d, heading %d, lascmd %d, lascmdval %d, lastcmdpow %d \n",t.LastPktCounter, t.CurrentGrade, t.HitCount, t.Heading, t.LastCmd, t.LastCmdValue, t.LastCmdPower);
 
+		
 	
 		/*
 		x[0] = 9;

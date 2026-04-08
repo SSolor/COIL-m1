@@ -106,7 +106,7 @@ int main(void) {
 	
 	
 		MySocket soc(CLIENT, "10.172.41.150", 29000, TCP, 100);
-		soc.SetCType(TCP);
+		
 		soc.ConnectTCP();
 
 		//soc.ConnectTCP();

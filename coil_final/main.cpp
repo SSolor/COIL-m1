@@ -17,14 +17,13 @@ using namespace std;
 int main(){
     crow::SimpleApp app;
 
-    MySocket* soc;//keeps in scope, otherwise each crow_route function is creating and destroying them
+    MySocket* soc=nullptr;//keeps in scope, otherwise each crow_route function is creating and destroying them
     //but we don't want to initialize this yet, so here we are
-    int pktnum;
+    int packetno=0;
 
-    //just going to copy basic routes from a previous assignment because what else are they gonna do?
+    //just going to copy basic routes from a previous assignment because what else are they supposed to do?
     CROW_ROUTE(app, "/")
     ([](const request &req, response &res) {
-    //I couldn't really think of a better way of opening the file, so I mostly copied the example code
         ifstream in("../public/index.html", ifstream::in);
         if (in) {
             ostringstream contents;
@@ -41,7 +40,6 @@ int main(){
         }
         res.end();
     });
-  
     CROW_ROUTE(app, "/get_style/<string>")
     ([](const request &req, response &res, string filename) {
         ifstream in("../public/styles/"+filename,ifstream::in);
@@ -61,7 +59,6 @@ int main(){
         }
         res.end();
     });
-
     CROW_ROUTE(app, "/get_image/<string>")
     ([](const request &req, response &res, string filename) {
         ifstream in("../public/images/"+filename,ifstream::in);
@@ -82,7 +79,6 @@ int main(){
         }
         res.end();
     });
-
     CROW_ROUTE(app, "/get_script/<string>")
     ([](const request &req, response &res, string filename) {
         ifstream in("../public/scripts/"+filename,ifstream::in);
@@ -104,88 +100,178 @@ int main(){
 
 
     //robot routes
-    CROW_ROUTE(app,"/connect/<string>/<int>")//.methods(HTTPMethod::Post)
+    CROW_ROUTE(app,"/connect/<string>/<int>").methods(HTTPMethod::Post)
     ([&soc](const request &req, response &res, string IPadr, int Portno){
-    //    if(*soc){
+//idk why the capture list needs that its already a pointer
+        if(soc){
             //if tcp, send sleep, kill tcp, kill tcp serv
-    //        delete soc;//
-    //    }
-        soc = new MySocket(CLIENT,IPadr,Portno,UDP,APPROPRIATE_SIZE);
-                //instructions specifically state that this route should be for UDP ONLY
+            delete soc;//calls close() and allat
+        }
+        json::rvalue json_body = json::load(req.body);
+        if (!json_body) {
+            res.code = 400;  // Bad Request
+            res.write("Invalid JSON format");
+            res.end();
+        }
+        ConnectionType typ = (ConnectionType) json_body["Ctype"].i();
+       
+        soc = new MySocket(CLIENT,IPadr,Portno,typ,APPROPRIATE_SIZE);
+        if(typ==TCP){
+            soc->ConnectTCP();
+            //technically we don't even need this as the function covers for it, but its better to have it
+        }
 
         //reroute stderr somehow
 
         res.set_header("Content-Type","text/plain");
         res.code=200;
-        res.write("opened udp socket");
+        if(typ==TCP)
+            res.write("opened and connected tcp socket");
+        else if(typ==UDP)
+            res.write("opened udp socket");
         res.end();
     });
 
-    //my solution to the requirements stating the previous was for tcp only
-    CROW_ROUTE(app,"/connectTCP/<string>/<int>").methods(HTTPMethod::Post)
-    ([&soc](const request &req, response &res, string IPadr, int Portno){
-       // if(*soc){
-            //if tcp, send sleep, kill tcp, kill tcp serv
-         //   delete soc;//
-        //}
-        soc = new MySocket(CLIENT,IPadr,Portno,TCP,APPROPRIATE_SIZE);
-        soc->ConnectTCP();
+    CROW_ROUTE(app,"/telecommand/").methods(HTTPMethod::PUT)
+    ([&soc, &packetno](const request &req, response &res){
+        if(!soc){
+            res.set_header("Content-Type","text/plain");
+            res.code=401;//forbidden, seems appropriate? since this occurs when no connection
+            res.write("You must connect first");
+        }
+        else{
+            json::rvalue json_body = json::load(req.body);
+            if (!json_body) {
+                res.code = 400;  // Bad Request
+                res.write("Invalid JSON format");
+                res.end();
+            }
+            int cmd = json_body["command"].i();
 
-        //reroute stderr somehow
+            PktDef commnd;
+            ostringstream results;//string stream lets us format and not worry about buffers
 
-        res.set_header("Content-Type","text/plain");
-        res.code=200;
-        res.write("opened udp socket");
+            commnd.SetPktCount(packetno);
+            packetno++;
+            if(cmd == FORWARD || cmd ==BACKWARD){
+                commnd.SetCmd(DRIVE);
+
+                DriveBody drive;
+                drive.Direction = cmd;
+                drive.Duration = json_body["duration"].i();
+                drive.Power = json_body["speed"].i();
+
+                commnd.SetBodyData((char*)&drive,sizeof(drive));
+            }
+            else if(cmd == LEFT || cmd == RIGHT){
+                commnd.SetCmd(DRIVE);
+
+                TurnBody turn;
+                turn.Direction = cmd;
+                turn.Duration = json_body["duration"].i();
+
+                commnd.SetBodyData((char*)&turn,sizeof(turn));
+            }
+            else if(cmd == 5){//that is, sleep; the website uses the same command but they were distinct according to our defines
+                commnd.SetCmd(SLEEP);
+            }
+            else{
+                res.code = 400;  // Bad Request
+                res.write("Invalid JSON format");
+                res.end();
+            }
+            char* packed = commnd.GenPacket();
+
+            //the beauty of socket is we don't care how it's connected
+            soc->SendData(packed,commnd.GetLength());
+
+            //getting the response back:
+            char rc[APPROPRIATE_SIZE];
+            int rcsize=soc->GetData(rc);
+            PktDef telack(rc);
+
+            //printing raw
+            results <<"ACKNOWLEDGMENT:\nsize: "<<rcsize<<"\nraw value:\n";
+            for(int i=0; i<rcsize;i++){
+                int v = rc[i];
+                results<<v<<" ";
+            }
+            //printing formated
+            results<<"\nAck: "<<telack.GetAck()<<" |Command: "<<telack.GetCmd()<<" |pkt num: "<<telack.GetPktCount()<<" |body:\n"<<telack.GetBodyData();
+
+            //since sleep is the kill command:
+            if(soc->GetCType==TCP){
+                soc->DisconnectTCP();
+            }
+
+            res.write(results.str());
+        }
         res.end();
-    });
-
-    CROW_ROUTE(app,"/telecommand/").methods(HTTPMethod::Put)
-    ([](const request &req, response &res){
-
     });
 
     //uhh I think there was a typo on the instructions for this one lol. 'telementry'
     CROW_ROUTE(app,"/telemetry_request/").methods(HTTPMethod::Get)//:GET
-    ([&soc](const request &req, response &res){
-     //   if(!*soc){
-     //       res.set_header("Content-Type","text/plain");
-       //     res.code=401;//forbidden, seems appropriate? since this occurs when no connection
-         //   res.write("You must connect first");
-      //  }
-
-        PktDef telem;
-
-        telem.SetCmd(RESPONSE);
-        telem.SetPktCount(4);
-
-        char* packed = telem.GenPacket();
-
-        //the beauty of socket is we don't care who or what it is
-        soc->SendData(packed,telem.GetLength());
-
-        //telem sends 2 packets back
-        char rc[APPROPRIATE_SIZE];
-        int rcsize=soc->GetData(rc);
-
-        PktDef telack(rc);
-        printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", telack.GetAck(), telack.GetCmd(), telack.GetPktCount(), telack.GetBodyData());
-
-        if(telack.GetAck()){
-            char rc2[APPROPRIATE_SIZE];
-            int rcsize2=soc->GetData(rc2);
-
-            PktDef teldat(rc2);
-            printf("\nwe got: ack: %d, cmd: %d, count: %d, %s\n", teldat.GetAck(), teldat.GetCmd(), teldat.GetPktCount(), teldat.GetBodyData());
-
+    ([&soc, &packetno](const request &req, response &res){
+        if(!soc){
             res.set_header("Content-Type","text/plain");
-            res.code=200;
-            res.write(teldat.GetBodyData());
+            res.code=401;//forbidden, seems appropriate? since this occurs when no connection
+            res.write("You must connect first");
         }
         else{
-            res.set_header("Content-Type","text/plain");
-            res.code=400;//change
-            res.write(telack.GetBodyData());
-        }
+            PktDef telem;
+            ostringstream results;//string stream lets us format and not worry about buffers
+
+            telem.SetCmd(RESPONSE);
+            telem.SetPktCount(packetno);
+            packetno++;
+            char* packed = telem.GenPacket();
+
+            //the beauty of socket is we don't care how it's connected
+            soc->SendData(packed,telem.GetLength());
+
+            //getting the response back:
+            char rc[APPROPRIATE_SIZE];
+            int rcsize=soc->GetData(rc);
+            PktDef telack(rc);
+
+            //printing raw
+            results <<"ACKNOWLEDGMENT:\nsize: "<<rcsize<<"\nraw value:\n";
+            for(int i=0; i<rcsize;i++){
+                int v = rc[i];
+                results<<v<<" ";
+            }
+            //printing formated
+            results<<"\nAck: "<<telack.GetAck()<<" |Command: "<<telack.GetCmd()<<" |pkt num: "<<telack.GetPktCount()<<" |body:\n"<<telack.GetBodyData();
+
+            if(telack.GetAck()){
+                char rc2[APPROPRIATE_SIZE];
+                int rcsize2=soc->GetData(rc2);
+                PktDef teldat(rc2);
+                telemetry teletele;
+                memcpy(&teletele,teldat.GetBodyData(),sizeof(teletele));
+
+                //printing raw
+                results <<"\nRESPONSE:\nsize: "<<rcsize2<<"\nraw value:\n";
+                for(int i=0; i<rcsize2;i++){
+                    int v = rc2[i];
+                    results<<v<<" ";
+                }
+                //printing formated
+                results<<"\nAck: "<<teldat.GetAck()<<" |Command: "<<teldat.GetCmd()<<" |pkt num: "<<teldat.GetPktCount()<<" |body:\n"<<teldat.GetBodyData();
+                results<<"last packet: "<<teletele.LastPktCounter<<" grade: "<<teletele.CurrentGrade<<" hits "<<teletele.HitCount<<" heading "<<teletele.Heading;
+                results<<" lascmd "<<teletele.LastCmd<<" lascmdval "<<teletele.LastCmdValue<<" lastcmdpow "<<teletele.LastCmdPower<<"\n";
+
+                res.set_header("Content-Type","text/plain");
+                res.code=200;
+            }
+            else{ //nack or some other failure
+                res.set_header("Content-Type","text/plain");
+                res.code=400;//change
+
+                results<<"\nNO RESPONSE";
+            }
+            res.write(results.str());
+        }   
         res.end();
     });
 

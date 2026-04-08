@@ -32,6 +32,16 @@ struct DriveBody {
 	};
 #pragma pack(pop)
 
+struct telemetry {
+	unsigned short int LastPktCounter;
+	unsigned short int CurrentGrade;
+	unsigned short int HitCount;
+	unsigned short int Heading;
+	unsigned char LastCmd;
+	unsigned char LastCmdValue;
+	unsigned char LastCmdPower;
+};
+
 
 typedef enum CmdType {
 	//unsure if these should just be numbers or represent the bitfield
