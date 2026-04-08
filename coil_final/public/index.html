@@ -64,7 +64,43 @@
           <span class="btn-glow"></span>
         </button>
       </div>
-	  
+	        <div class="panel-header">
+        <span class="panel-num">01.5</span>
+        <h2>routing</h2>
+        <div class="header-line"></div>
+      </div>
+      
+      <div class="connect-form" id="routeForm">
+        <div class="field-group">
+          <label for="lisipAddr">Listening ADDRESS</label>
+          <input type="text" id="lisipAddr" placeholder="192.168.1.100"
+                 pattern="^(\d{1,3}\.){3}\d{1,3}$" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="field-group">
+          <label for="lisportNum">Listening PORT</label>
+          <input type="number" id="lisportNum" placeholder="5000" min="1" max="65535" />
+        </div>
+        <div class="field-group">
+          <label for="sendipAddr">sending ADDRESS</label>
+          <input type="text" id="sendipAddr" placeholder="192.168.1.100"
+                 pattern="^(\d{1,3}\.){3}\d{1,3}$" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="field-group">
+          <label for="senportNum">sending PORT</label>
+          <input type="number" id="senportNum" placeholder="5000" min="1" max="65535" />
+        </div>
+          <div class="field-group">
+            <label for="toggleCtype">UDP or TCP</label>
+            <label class="switch">
+              <input type="checkbox" id="toggleCtype2">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <button class="btn btn-primary" id="btnRoute" onclick="handleRoute()">
+          <span class="btn-inner">ROUTE</span>
+          <span class="btn-glow"></span>
+          </button>
+      </div>
 
 	  
     </section>

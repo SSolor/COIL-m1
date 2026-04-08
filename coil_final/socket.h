@@ -109,6 +109,7 @@ class MySocket {
 		else if (connectionType == TCP && mySocket == SERVER) {
 			WelcomeSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (WelcomeSocket == INVALID_SOCKET) {
+				fprintf(stderr,"welcome could not open\n");
 				return -1;
 			}
 
@@ -123,6 +124,7 @@ class MySocket {
 				#elif __linux__
 					close(ConnectionSocket);
 				#endif
+				fprintf(stderr,"bind failed\n");
 				return -1;
 			}
 
@@ -134,6 +136,7 @@ class MySocket {
 					close(ConnectionSocket);
 				#endif
 				return -1;
+				fprintf(stderr,"listen failed\n");
 			}
 			welcomeopen = true;
 			//tcp server is able to accept() from this stage
@@ -214,6 +217,7 @@ public:
 			//client can now send and recieve
 			}
 			else if (mySocket == SERVER) {
+				fprintf(stderr,"waiting to accept\n");
 				ConnectionSocket = SOCKET_ERROR;
 				if ((ConnectionSocket = accept(WelcomeSocket, NULL, NULL)) == SOCKET_ERROR) {
 					#ifdef _WIN32

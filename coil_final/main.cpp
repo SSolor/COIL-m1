@@ -286,7 +286,7 @@ int main(){
         res.end();
     });
 
-    CROW_ROUTE(app,"/routing_table/<string>/<int>/<string>/<int>/").methods(HTTPMethod::Post)
+    CROW_ROUTE(app,"/routing_table/<string>/<int>/<string>/<int>").methods(HTTPMethod::Post)
     ([&soc](const request &req, response &res, string lisIPadr, int lisPortno, string senIPadr,int senPortno){
         if(soc){
             delete soc;
@@ -317,49 +317,50 @@ int main(){
             routedsoc.ConnectTCP(); 
             printf("log: connected server and client tcp\n");
         }
-        while(on){//I've never known how to keep a server going without making it inescapable. not doing multithread for this either
-            char rec[APPROPRIATE_SIZE];
-            int recsize=soc->GetData(rec);
-            printf("log: recieved packet from other app\n");
-            PktDef transmit(rec);
+     //   while(on){
+            //I've never known how to keep a server going without making it inescapable. not doing multithread for this either
+                char rec[APPROPRIATE_SIZE];
+                int recsize=soc->GetData(rec);
+                printf("log: recieved packet from other app\n");
+                PktDef transmit(rec);
+/*
+                routedsoc.SendData(rec,transmit.GetLength());
+                printf("log: routed packet through to destination\n");
 
-             routedsoc.SendData(rec,transmit.GetLength());
-             printf("log: routed packet through to destination\n");
+                char recrouted[APPROPRIATE_SIZE];
+                int recrsize=routedsoc.GetData(recrouted);
+                printf("log: recieved packet from dest\n");
 
-            char recrouted[APPROPRIATE_SIZE];
-            int recrsize=routedsoc.GetData(recrouted);
-            printf("log: recieved packet from dest\n");
+                soc->SendData(recrouted,recrsize);
+                printf("log: sent packet back to origin\n");
 
-            soc->SendData(recrouted,recrsize);
-            printf("log: sent packet back to origin\n");
+                switch(transmit.GetCmd()){
+                    case DRIVE:
+                    //nothing more needs to be done
+                        break;
+                    case SLEEP:
+                        //since sleep is kill:
+                        if(typ==TCP){
+                            routedsoc.DisconnectTCP();
+                            soc->DisconnectTCP();
+                            soc->KillTCPServ();
+                            printf("log: isconnected and killed tcp\n");
+                        }
+                        on=false;
+                        break;
+                    case RESPONSE:
+                        //since the amount this returns is variable we gotta check here
+                        PktDef checkack(recrouted);
+                        if(checkack.GetAck()){
+                            char recrouted2[APPROPRIATE_SIZE];
+                            int recrsize2=routedsoc.GetData(recrouted2);
 
-            switch(transmit.GetCmd()){
-                case DRIVE:
-                   //nothing more needs to be done
-                    break;
-                case SLEEP:
-                    //since sleep is kill:
-                    if(typ==TCP){
-                        routedsoc.DisconnectTCP();
-                        soc->DisconnectTCP();
-                        soc->KillTCPServ();
-                        printf("log: isconnected and killed tcp\n");
-                    }
-                    on=false;
-                    break;
-                case RESPONSE:
-                    //since the amount this returns is variable we gotta check here
-                    PktDef checkack(recrouted);
-                    if(checkack.GetAck()){
-                        char recrouted2[APPROPRIATE_SIZE];
-                        int recrsize2=routedsoc.GetData(recrouted2);
-
-                        soc->SendData(recrouted2,recrsize2);
-                        printf("recieved and sent back additional telemetry packet\n");
-                    }
-                    break;
-            }
-        }
+                            soc->SendData(recrouted2,recrsize2);
+                            printf("recieved and sent back additional telemetry packet\n");
+                        }
+                        break;
+                }*/
+       // }
 
     });
 
