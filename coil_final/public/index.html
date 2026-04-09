@@ -142,6 +142,10 @@
         REV
       </button>
     </div>
+
+    <div class="drive-row drive-bot">
+      <button class="btn btn-tiny btn-telem" onclick="requestTelemetry()" disabled>TELEM</button>
+    </div>
   </div>
 
       <!-- Sliders -->
@@ -180,7 +184,6 @@
     <h2>PACKET LOG</h2>
     <div class="header-line"></div>
     <button class="btn btn-tiny" onclick="clearLog()">CLR</button>
-    <button class="btn btn-tiny btn-telem" onclick="requestTelemetry()" disabled>REQ HK</button>
   </div>
   <div class="log-viewport" id="logViewport">
     <div class="log-empty">Awaiting data…</div>

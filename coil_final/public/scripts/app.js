@@ -171,7 +171,9 @@ async function handleConnect() {
       setConnected(ip, port);
       log('RX', `HTTP ${res.status} — ${responseBody || 'Connected'}`);
     } else {
-      log('ERR', `HTTP ${res.status} — Connect failed`);
+	  let responseBody = '';
+      try { responseBody = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${responseBody || 'Connect failed'}`);
     }
   } catch (err) {
     log('INFO', `No server response (${err.message}) — updating UI only`);
@@ -227,7 +229,9 @@ async function handleRoute() {
       setConnected(lisIPaddr, lisPort);
       log('RX', `HTTP ${res.status} — ${responseBody || 'routed'}`);
     } else {
-      log('ERR', `HTTP ${res.status} — Connect failed`);
+	  let responseBody = '';
+      try { responseBody = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${responseBody || 'Connect failed'}`);
     }
   } catch (err) {
     log('INFO', `No server response (${err.message}) — updating UI only`);
@@ -285,7 +289,9 @@ async function sendTelecommand(cmd) {
       try { body = await res.text(); } catch (_) {}
       log('RX', `HTTP ${res.status} — ${body || 'ACK'}`);
     } else {
-      log('ERR', `HTTP ${res.status} — Command rejected`);
+	  let body = '';
+      try { body = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${body ||'Command rejected'}`);
     }
   } catch (err) {
     log('INFO', `No server (${err.message}) — cmd queued locally`);
@@ -307,7 +313,9 @@ async function requestTelemetry() {
       try { body = await res.text(); } catch (_) {}
       log('RX', `HTTP ${res.status} — ${body || 'HK data received'}`);
     } else {
-      log('ERR', `HTTP ${res.status} — Telemetry request failed`);
+	  let body = '';
+      try { body = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${body ||'Telemetry request failed'}`);
     }
   } catch (err) {
     log('INFO', `No server (${err.message}) — GET attempted`);

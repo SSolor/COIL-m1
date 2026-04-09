@@ -4,7 +4,7 @@
 #include "socket.h"
 #include <iostream>
 
-
+#define LOG stdout
 //its quite annoying that it treats crow as having errors
 //and intellisence doesn't work. I can't even see function names
 
@@ -104,11 +104,13 @@ int main(){
     ([&soc](const request &req, response &res, string IPadr, int Portno){
 //idk why the capture list needs that its already a pointer
         if(soc){
-            //if tcp, send sleep, kill tcp, kill tcp serv
+            fprintf(LOG,"log: deleted existing soc\n");
             delete soc;//calls close() and allat
+            soc=nullptr;
         }
         json::rvalue json_body = json::load(req.body);
         if (!json_body) {
+            res.set_header("Content-Type","text/plain");
             res.code = 400;  // Bad Request
             res.write("Invalid JSON format");
             res.end();
@@ -116,15 +118,29 @@ int main(){
         }
         ConnectionType typ = (ConnectionType) json_body["Ctype"].i();
        
-        soc = new MySocket(CLIENT,IPadr,Portno,typ,APPROPRIATE_SIZE);
-        printf("log: attempted to setup socket\n");
+        try{
+            soc = new MySocket(CLIENT,IPadr,Portno,typ,APPROPRIATE_SIZE);
+        } catch (int e){
+            res.code=500;//internal error
+            res.write("failed to create socket");
+            res.end();
+            return;
+        }
+        fprintf(LOG,"log: setup socket\n");
+
         if(typ==TCP){
-            soc->ConnectTCP();
-            printf("log: attempted tcp connect\n");
+            try{
+                soc->ConnectTCP();
+            } catch (int e){
+                res.set_header("Content-Type","text/plain");
+                res.code=500;
+                res.write("tcp failed to connect");
+                res.end();
+                return;
+            }
+            fprintf(LOG,"log: TCP connected\n");
             //technically we don't even need this as the function covers for it, but its better to have it
         }
-
-        //reroute stderr somehow
 
         res.set_header("Content-Type","text/plain");
         res.code=200;
@@ -189,13 +205,19 @@ int main(){
 
             //the beauty of socket is we don't care how it's connected
             soc->SendData(packed,commnd.GetLength());
-            printf("log: sent packet\n");
+            fprintf(LOG,"log: attempted to send packet\n");
 
             //getting the response back:
             char rc[APPROPRIATE_SIZE];
             int rcsize=soc->GetData(rc);
+            if(rcsize <0){
+                res.code=500;
+                res.write("failed to retrieve data");
+                res.end();
+                return;
+            }
             PktDef telack(rc);
-            printf("log: revcieved packet\n");
+            fprintf(LOG,"log: recieved packet\n");
 
             //printing raw
             results <<"ACKNOWLEDGMENT:\nsize: "<<rcsize<<"\nraw value:\n";
@@ -209,7 +231,7 @@ int main(){
             //since sleep is the kill command:
             if(soc->GetCType()==TCP && cmd ==5){
                 soc->DisconnectTCP();
-                printf("log: disconnected tcp\n");
+                fprintf(LOG,"log: attempted to disconnected tcp\n");
             }
 
             res.write(results.str());
@@ -236,13 +258,19 @@ int main(){
 
             //the beauty of socket is we don't care how it's connected
             soc->SendData(packed,telem.GetLength());
-            printf("log: sent packet\n");
+            fprintf(LOG,"log: attempted to send packet\n");
 
             //getting the response back:
             char rc[APPROPRIATE_SIZE];
             int rcsize=soc->GetData(rc);
+            if(rcsize <0){
+                res.code=500;
+                res.write("failed to retrieve data");
+                res.end();
+                return;
+            }
             PktDef telack(rc);
-            printf("log: recieved packet");
+            fprintf(LOG,"log: recieved packet\n");
 
             //printing raw
             results <<"ACKNOWLEDGMENT:\nsize: "<<rcsize<<"\nraw value:\n";
@@ -256,7 +284,15 @@ int main(){
             if(telack.GetAck()){
                 char rc2[APPROPRIATE_SIZE];
                 int rcsize2=soc->GetData(rc2);
-                printf("log: recived additional telem packet\n");
+                if(rcsize2 <0){
+                    res.code=500;
+                    results<<"\nfailed to retrieve telemetry";
+                    res.write(results.str());
+                    res.end();
+                    return;
+                }
+                fprintf(LOG,"log: recieved additional telem packet\n");
+
                 PktDef teldat(rc2);
                 telemetry teletele;
                 memcpy(&teletele,teldat.GetBodyData(),sizeof(teletele));
@@ -277,7 +313,7 @@ int main(){
             }
             else{ //nack or some other failure
                 res.set_header("Content-Type","text/plain");
-                res.code=400;//change
+                res.code=500;//change
 
                 results<<"\nNO RESPONSE";
             }
@@ -288,9 +324,17 @@ int main(){
 
     CROW_ROUTE(app,"/routing_table/<string>/<int>/<string>/<int>").methods(HTTPMethod::Post)
     ([&soc](const request &req, response &res, string lisIPadr, int lisPortno, string senIPadr,int senPortno){
+        PktDef emergency;
+        emergency.SetCmd(SLEEP);
+        emergency.SetPktCount(0);
+        char* pemgcy = emergency.GenPacket();
+
         if(soc){
+            fprintf(LOG,"log: deleted existing soc\n");
             delete soc;
+            soc=nullptr;
         }
+
         json::rvalue json_body = json::load(req.body);
         if (!json_body) {
             res.code = 400;  // Bad Request
@@ -300,68 +344,97 @@ int main(){
         }
         ConnectionType typ = (ConnectionType) json_body["Ctype"].i();
 
-        soc = new MySocket(SERVER,lisIPadr,lisPortno,typ,APPROPRIATE_SIZE);
-        printf("log: started server for routing\n");
+        MySocket listensoc = MySocket(SERVER,lisIPadr,lisPortno,typ,APPROPRIATE_SIZE);
+        fprintf(LOG,"log: started listening\n");
+
+        try{
+            soc = new MySocket(CLIENT,senIPadr,senPortno,typ,APPROPRIATE_SIZE);
+        } catch (int e){
+            res.code=500;
+            res.write("failed to create forward socket");
+            res.end();
+            return; 
+        }
+        fprintf(LOG,"log: connected to forward\n");
+        if(typ==TCP){
+            fprintf(LOG,"log: establishing connection with listening socket\n");
+            try{
+                listensoc.ConnectTCP(); 
+
+                fprintf(LOG,"log: establishing connection with forward socket\n");
+
+                soc->ConnectTCP(); 
+            }catch (int e){
+                res.code=500;
+                res.write("failed to establish connections");
+                res.end();
+            }
+            fprintf(LOG,"log: connected both listening and forward\n");
+        }
+        bool on=true;
+        while(on){
+
+
+            char fromapp[APPROPRIATE_SIZE];
+            int fasize=listensoc.GetData(fromapp);
+            fprintf(LOG,"log: recieved packet from listener\n");
+
+            soc->SendData(fromapp,fasize);
+            fprintf(LOG,"log: attempted to forward packet\n");
+
+            char fromdest[APPROPRIATE_SIZE];
+            int fdsize=soc->GetData(fromdest);
+            fprintf(LOG,"log: recieved packet from forward\n");
+
+            listensoc.SendData(fromdest,fdsize);
+            fprintf(LOG,"log: attempted to send packet back to listener\n");
+
+            PktDef fdinfo(fromdest);
+            switch(fdinfo.GetCmd()){
+                case DRIVE:
+                //drives send 1 recieve 1
+                    fprintf(LOG,"log: DRIVE was recieved\n");
+                    break;
+                case SLEEP:
+                //sleep is kill
+                    fprintf(LOG,"log: SLEEP was recieved\n");
+                    if(typ==TCP){
+                        soc->DisconnectTCP();
+                        listensoc.DisconnectTCP();
+                        listensoc.KillTCPServ();
+                        fprintf(LOG,"log: disconnected and killed tcp\n");
+                    }
+                    on=false;
+                    break;
+                case RESPONSE:
+                    fprintf(LOG,"log: RESPONSE was recieved\n");
+                    if(fdinfo.GetAck()){
+                        char fromdest2[APPROPRIATE_SIZE];
+                        int fd2size=soc->GetData(fromdest2);
+                        fprintf(LOG,"log: recieved additional telem from forward\n");
+
+                        listensoc.SendData(fromdest2,fd2size);
+                        fprintf(LOG,"log: attempted to send packet back to listener\n");
+                    }
+                    break;
+                default:
+                    fprintf(LOG,"log: non-command recieved. something went wrong\n");
+                    if(typ==TCP){
+                        soc->DisconnectTCP();
+                        listensoc.DisconnectTCP();
+                        listensoc.KillTCPServ();
+                        
+                        fprintf(LOG,"log: disconnected and killed tcp\n");
+                    }
+                    on=false;
+                    break;
+            }
+        }
 
         res.set_header("Content-Type","text/plain");
-        res.code=202;//"accepted, but things might still be happening"
-        res.write("routing on server mode. will await connection");
+        res.code=200;
+        res.write("listener disconnected. ceasing forwarding");
         res.end();
-
-        //from here we're kinda stuck in a waiting state, so we sent the resposne back early
-        MySocket routedsoc = MySocket(CLIENT,senIPadr,senPortno,typ,APPROPRIATE_SIZE);
-        bool on=true;
-
-        if(typ==TCP){
-            soc->ConnectTCP(); 
-            routedsoc.ConnectTCP(); 
-            printf("log: connected server and client tcp\n");
-        }
-     //   while(on){
-            //I've never known how to keep a server going without making it inescapable. not doing multithread for this either
-                char rec[APPROPRIATE_SIZE];
-                int recsize=soc->GetData(rec);
-                printf("log: recieved packet from other app\n");
-                PktDef transmit(rec);
-/*
-                routedsoc.SendData(rec,transmit.GetLength());
-                printf("log: routed packet through to destination\n");
-
-                char recrouted[APPROPRIATE_SIZE];
-                int recrsize=routedsoc.GetData(recrouted);
-                printf("log: recieved packet from dest\n");
-
-                soc->SendData(recrouted,recrsize);
-                printf("log: sent packet back to origin\n");
-
-                switch(transmit.GetCmd()){
-                    case DRIVE:
-                    //nothing more needs to be done
-                        break;
-                    case SLEEP:
-                        //since sleep is kill:
-                        if(typ==TCP){
-                            routedsoc.DisconnectTCP();
-                            soc->DisconnectTCP();
-                            soc->KillTCPServ();
-                            printf("log: isconnected and killed tcp\n");
-                        }
-                        on=false;
-                        break;
-                    case RESPONSE:
-                        //since the amount this returns is variable we gotta check here
-                        PktDef checkack(recrouted);
-                        if(checkack.GetAck()){
-                            char recrouted2[APPROPRIATE_SIZE];
-                            int recrsize2=routedsoc.GetData(recrouted2);
-
-                            soc->SendData(recrouted2,recrsize2);
-                            printf("recieved and sent back additional telemetry packet\n");
-                        }
-                        break;
-                }*/
-       // }
-
     });
 
 

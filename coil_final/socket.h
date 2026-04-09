@@ -109,7 +109,7 @@ class MySocket {
 		else if (connectionType == TCP && mySocket == SERVER) {
 			WelcomeSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 			if (WelcomeSocket == INVALID_SOCKET) {
-				fprintf(stderr,"welcome could not open\n");
+				fprintf(stderr,"socket.h: welcome could not open\n");
 				return -1;
 			}
 
@@ -120,23 +120,23 @@ class MySocket {
 			//bind
 			if (bind(WelcomeSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
 				#ifdef _WIN32
-					closesocket(ConnectionSocket);
+					closesocket(WelcomeSocket);
 				#elif __linux__
-					close(ConnectionSocket);
+					close(WelcomeSocket);
 				#endif
-				fprintf(stderr,"bind failed\n");
+				fprintf(stderr,"socket.h: bind failed\n");
 				return -1;
 			}
 
 			//listen
 			if (listen(WelcomeSocket, 1) == SOCKET_ERROR) { //I think 1 is fine here?
 				#ifdef _WIN32
-					closesocket(ConnectionSocket);
+					closesocket(WelcomeSocket);
 				#elif __linux__
-					close(ConnectionSocket);
+					close(WelcomeSocket);
 				#endif
 				return -1;
-				fprintf(stderr,"listen failed\n");
+				fprintf(stderr,"socket.h: listen failed\n");
 			}
 			welcomeopen = true;
 			//tcp server is able to accept() from this stage
@@ -172,7 +172,8 @@ public:
 		}
 		int ok=socketStart();
 		if (ok != 0) {
-			fprintf(stderr, "socket or bind failed\n");
+			fprintf(stderr, "socket.h: socket or bind failed\n");
+			throw -1;
 			return;
 		}
 	}
@@ -188,7 +189,7 @@ public:
 		#ifdef _WIN32
 			closesocket(ConnectionSocket);
 		#elif __linux__
-			close(ConnectionSocket);
+			close(WelcomeSocket);
 		#endif
 		}
 		if (Buffer)
@@ -210,14 +211,14 @@ public:
 					#elif __linux__
 						close(ConnectionSocket);
 					#endif
-					fprintf(stderr, "tcp failed to connect\n");
+					fprintf(stderr, "socket.h: tcp failed to connect\n");
+					throw -1;
 					return;
 				}
 				bTCPConnect = true;
 			//client can now send and recieve
 			}
 			else if (mySocket == SERVER) {
-				fprintf(stderr,"waiting to accept\n");
 				ConnectionSocket = SOCKET_ERROR;
 				if ((ConnectionSocket = accept(WelcomeSocket, NULL, NULL)) == SOCKET_ERROR) {
 					#ifdef _WIN32
@@ -225,7 +226,8 @@ public:
 					#elif __linux__
 						close(WelcomeSocket);
 					#endif
-					fprintf(stderr, "tcp failed to accept\n");
+					fprintf(stderr, "socket.h: tcp failed to accept\n");
+					throw -1;
 					return;
 				}
 				bTCPConnect = true;
@@ -236,7 +238,7 @@ public:
 	}
 	void DisconnectTCP() {
 		if (connectionType == UDP || bTCPConnect == false) {
-			fprintf(stderr, "you can't disconnect right now\n");
+			fprintf(stderr, "socket.h: you can't disconnect right now\n");
 			return;
 		}
 		else{
@@ -249,18 +251,21 @@ public:
 			//so I'm not closing welcomesocket or anything
 			bTCPConnect = false;
 
-			int okay=socketStart();//gets killed socket ready for connection again
-			if (okay != 0)
-				fprintf(stderr, "new socket failed\n");
-			//if you want to change things about your socket, after doing this, set<whatever>(), resetsocket();
-			//having it like this prevents double closing or anything
-
+			//for both, we want to be able to call connecttcp immediatly, which for client means rebuilding connectionsocket (thus calling socketstart)
+			//but for server, that would mean reasigning welcomesocket while its still open. not good. their connectionsocket gets built in connecttcp anyway
+			if (mySocket != SERVER) {
+				int okay=socketStart();//gets killed socket ready for connection again
+				if (okay != 0)
+					fprintf(stderr, "socket.h: new socket failed\n");
+				//if you want to change things about your socket, after doing this, set<whatever>(), resetsocket();
+				//having it like this prevents double closing or anything
+			}
 			return;
 		}
 	}
 	void resetSocket() {
 		if (bTCPConnect == true) {
-			fprintf(stderr, "disconnect before reset\n");
+			fprintf(stderr, "socket.h: disconnect before reset\n");
 			return;
 		}
 
@@ -272,7 +277,7 @@ public:
 
 		int okay=socketStart();
 		if (okay != 0)
-			fprintf(stderr, "new socket failed\n");
+			fprintf(stderr, "socket.h: new socket failed\n");
 
 		changesmade = false;
 	}
@@ -286,14 +291,14 @@ public:
 			welcomeopen = false;
 		}
 		else {
-			fprintf(stderr, "you cannot kill server now\n");
+			fprintf(stderr, "socket.h: you cannot kill server now\n");
 		}
 		return;
 	}
 
 	void SendData(const char* dat, int size) {
 		if (changesmade == true) {
-			fprintf(stderr, "cannot send data, changes have been made\n");
+			fprintf(stderr, "socket.h: cannot send data, changes have been made\n");
 			return;
 		}
 
@@ -308,12 +313,12 @@ public:
 			sendto(ConnectionSocket, dat, size, 0, (struct sockaddr*)&CliAddr, AddrLen);
 		}
 		else
-			fprintf(stderr, "cannot send data now\n");
+			fprintf(stderr, "socket.h: cannot send data now\n");
 		return;
 	}
 	int GetData(char* buf) {
 		if (changesmade == true) {
-			fprintf(stderr, "cannot get data, changes have been made\n");
+			fprintf(stderr, "socket.h: cannot get data, changes have been made\n");
 			return -2; //to differentiate between recv error
 		}
 
@@ -340,7 +345,7 @@ public:
 	//will not be reflected until reset
 	void SetIPAddr(std::string newaddr) {
 		if (bTCPConnect == true || welcomeopen==true)
-			fprintf(stderr, "you cannot change ip right now!\n");
+			fprintf(stderr, "socket.h: you cannot change ip right now!\n");
 		else
 			IPAddr = newaddr;
 		return;
@@ -348,7 +353,7 @@ public:
 	//will not be reflected until reset
 	void SetPort(unsigned int newport) {
 		if (bTCPConnect == true ||welcomeopen==true)
-			fprintf(stderr, "you cannot do port right now!\n");
+			fprintf(stderr, "socket.h: you cannot do port right now!\n");
 		else
 			Port = newport;
 		return;
@@ -359,7 +364,7 @@ public:
 	//will block certain functionality until reset
 	void SetType(SocketType newtype) {
 		if (bTCPConnect == true ||welcomeopen == true)
-			fprintf(stderr, "you cannot change socketype right now!\n");
+			fprintf(stderr, "socket.h: you cannot change socketype right now!\n");
 		else if (mySocket == newtype)
 			return;
 		else {
@@ -373,7 +378,7 @@ public:
 	//will block certain functionality until reset
 	void SetCType(ConnectionType newtype) {
 		if (bTCPConnect == true || welcomeopen == true)
-			fprintf(stderr, "you cannot change connectiontype right now!\n");
+			fprintf(stderr, "socket.h: you cannot change connectiontype right now!\n");
 		else if (connectionType == newtype)
 			return;
 		else {
