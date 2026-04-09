@@ -171,7 +171,9 @@ async function handleConnect() {
       setConnected(ip, port);
       log('RX', `HTTP ${res.status} — ${responseBody || 'Connected'}`);
     } else {
-      log('ERR', `HTTP ${res.status} — Connect failed`);
+	  let responseBody = '';
+      try { responseBody = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${responseBody || 'Connect failed'}`);
     }
   } catch (err) {
     log('INFO', `No server response (${err.message}) — updating UI only`);
@@ -179,6 +181,63 @@ async function handleConnect() {
   }
 }
 
+// Function to handle the routing form submission
+async function handleRoute() {
+  // Get the values from the form
+  const lisIPaddr = document.getElementById("lisipAddr").value.trim();
+  const lisPort = parseInt(document.getElementById("lisportNum").value, 10);
+  const sendIPaddr = document.getElementById("sendipAddr").value.trim();
+  const sendPort = parseInt(document.getElementById("senportNum").value,10);
+  
+  const ctype = document.getElementById('toggleCtype2').checked ? 2 : 3;
+
+   // Validate the inputs
+  if (!lisIPaddr || !sendIPaddr) { 
+    log('ERR', 'IP address is required');
+    return; 
+  }
+  if (isNaN(lisPort) || lisPort < 1 || lisPort > 65535) { 
+    log('ERR', 'Invalid lis port number (1–65535)');
+    return; 
+  }
+  if (isNaN(sendPort) || sendPort < 1 || sendPort > 65535) { 
+    log('ERR', 'Invalid lis port number (1–65535)');
+    return; 
+  }
+  
+    // Construct the URL dynamically using IP and port
+  const url = `/routing_table/${encodeURIComponent(lisIPaddr)}/${lisPort}/${encodeURIComponent(sendIPaddr)}/${sendPort}`;
+  log('TX', `POST ${url}`);
+
+  // Prepare the JSON body with Ctype
+  const body = JSON.stringify({ Ctype: ctype });
+
+  try {
+    // Send the POST request to the correct URL with the Ctype data
+    const res = await fetch(url, {
+      method: 'POST',  // Ensure the method is POST
+      headers: {
+        'Content-Type': 'application/json'  // Ensuring correct content type
+      },
+      body: body  // Send the body with Ctype
+    });
+
+    // Handle the response
+    if (res.ok) {
+      let responseBody = '';
+      try { responseBody = await res.text(); } catch (_) {}
+      setConnected(lisIPaddr, lisPort);
+      log('RX', `HTTP ${res.status} — ${responseBody || 'routed'}`);
+    } else {
+	  let responseBody = '';
+      try { responseBody = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${responseBody || 'Connect failed'}`);
+    }
+  } catch (err) {
+    log('INFO', `No server response (${err.message}) — updating UI only`);
+    setConnected(lisIPaddr, lisPort);
+  }
+}
 
 function handleDisconnect() {
   log('INFO', `Disconnecting from ${state.ip}:${state.port}`);
@@ -230,7 +289,9 @@ async function sendTelecommand(cmd) {
       try { body = await res.text(); } catch (_) {}
       log('RX', `HTTP ${res.status} — ${body || 'ACK'}`);
     } else {
-      log('ERR', `HTTP ${res.status} — Command rejected`);
+	  let body = '';
+      try { body = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${body ||'Command rejected'}`);
     }
   } catch (err) {
     log('INFO', `No server (${err.message}) — cmd queued locally`);
@@ -252,7 +313,9 @@ async function requestTelemetry() {
       try { body = await res.text(); } catch (_) {}
       log('RX', `HTTP ${res.status} — ${body || 'HK data received'}`);
     } else {
-      log('ERR', `HTTP ${res.status} — Telemetry request failed`);
+	  let body = '';
+      try { body = await res.text(); } catch (_) {}
+      log('ERR', `HTTP ${res.status} — ${body ||'Telemetry request failed'}`);
     }
   } catch (err) {
     log('INFO', `No server (${err.message}) — GET attempted`);
